@@ -14,6 +14,7 @@ Only free assets with licences that permit use, modification and bundling in a c
 | Game engine | Godot Engine 4.7.2 | MIT |
 
 ## Notes
+- v0.4.0 (Lead the Flock): the new sound effects (`bleat`, `pop`, `staff`, `yelp`, `growl`, `chime`, `stone`) are synthesised by `tools/gen_audio.py`; the new spoken lines (`sh_road`, `sh_camp_all`, `sh_camp_lost`, `n_ps23_1`, `n_stone_lk2_11`) are Piper placeholders listed above. The flock, wolves, light columns and glory motes are built in code; the only models used remain the CC0 Kenney kits (grass and bush clumps on the road are Kenney Nature Kit `grass_large` and `plant_bushSmall`). Psalm 23:1 and Luke 2:9-11 are KJV verbatim. No new third-party assets.
 - v0.3.0 (the Nativity, chapters 1-5, and the first age jump) added no third-party art: the lambs, doves, cage, angels, star, stables and temple are built in code (`scripts/areas.gd`, `scripts/props.gd`, `scripts/person.gd`) on the same CC0 Kenney kits. The scripture lines added for it are KJV verbatim (`data/kjv.json`); the added spoken lines (`sh_*`, `dove_seller`, `wise_thank`) are short invented bridges marked "Fiction" in the game.
 - The four wise-men figures are a placeholder; the text does not say how many there were.
 - The voices are placeholders. To replace one with a recording, overwrite `audio/voice/<line id>.ogg`; `data/lines.json` maps every line id.

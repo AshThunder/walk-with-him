@@ -9,6 +9,7 @@ signal continue_pressed
 signal save_pressed
 signal title_pressed
 signal chapter_chosen(stage_id: String)
+signal daily_pressed
 const _Minimap = preload("res://scripts/minimap.gd")
 const _Waypoint = preload("res://scripts/waypoint.gd")
 const _MapScreen = preload("res://scripts/mapscreen.gd")
@@ -25,6 +26,7 @@ var menu_open := false
 var map_open := false
 var cont_btn: TButton
 var begin_btn: TButton
+var daily_btn: TButton
 var cont_info: Label
 var credit_lbl: Label
 var root: Control
@@ -82,7 +84,7 @@ var clue_dots: Array = []
 var clue_lbls: Array = []
 ## Chapters on offer in the chapter-select. Chapters 6 (Egypt) and 7 (the Temple at twelve) are not built yet.
 const CHAPTERS := [
-	["n1_flock", "1   The Night Field"], ["n2_sky", "2   Glory in the Sky"], ["n3_town", "3   The Manger"], ["n4_temple", "4   The Presentation"],
+	["n1_flock", "1   The Night Field"], ["n1_classic", "1   The Night Field (first version)"], ["n2_sky", "2   Glory in the Sky"], ["n3_town", "3   The Manger"], ["n4_temple", "4   The Presentation"],
 	["n5_star", "5   The Star"], ["naz_start", "8   Nazareth"], ["cana_mary", "10   Cana of Galilee"]]
 
 func _ready() -> void:
@@ -342,6 +344,7 @@ func _build_title() -> void:
 	cont_info = lbl(title_grp, "", F_S, 40, Color(1, 0.9, 0.66), Rect2(0, 1160, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
 	cont_btn = btn(title_grp, "continue", "Continue", Rect2(290, 1230, 500, 150), "gold", 78); cont_btn.pressed.connect(func(): continue_pressed.emit())
 	begin_btn = btn(title_grp, "begin", "Begin", Rect2(290, 1280, 500, 150), "gold", 78); begin_btn.pressed.connect(func(): begin_pressed.emit())
+	daily_btn = btn(title_grp, "daily", "Road of the Day", Rect2(290, 1440, 500, 100), "dark", 54); daily_btn.pressed.connect(func(): daily_pressed.emit())
 	chap_btn = btn(title_grp, "chapters", "Chapters", Rect2(340, 1450, 400, 100), "dark", 54); chap_btn.pressed.connect(func(): open_chapters(true))
 	credit_lbl = lbl(title_grp, "Scripture: King James Version", F_U, 32, Color(1, 0.9, 0.7), Rect2(0, 1470, 1080, 44), HORIZONTAL_ALIGNMENT_CENTER, false, 8)
 	title_grp.visible = false
@@ -352,9 +355,12 @@ func show_title(v: bool, info := "") -> void:
 	var has := info != ""
 	cont_btn.visible = has; cont_info.visible = has; cont_info.text = info
 	if has:
-		begin_btn.position = Vector2(290, 1410); begin_btn.size = Vector2(500, 120); begin_btn.set_label("New Game"); begin_btn.style = "dark"; begin_btn.font_size = 60; chap_btn.position.y = 1560; credit_lbl.position.y = 1710
+		cont_info.position.y = 1130; cont_btn.position.y = 1190; cont_btn.size.y = 140
+		begin_btn.position = Vector2(290, 1364); begin_btn.custom_minimum_size = Vector2(500, 100); begin_btn.size = Vector2(500, 100); begin_btn.set_label("New Game"); begin_btn.style = "dark"; begin_btn.font_size = 56; daily_btn.position.y = 1500; chap_btn.position.y = 1630; credit_lbl.position.y = 1756
 	else:
-		begin_btn.position = Vector2(290, 1280); begin_btn.size = Vector2(500, 150); begin_btn.set_label("Begin"); begin_btn.style = "gold"; begin_btn.font_size = 78; chap_btn.position.y = 1460; credit_lbl.position.y = 1620
+		begin_btn.position = Vector2(290, 1250); begin_btn.custom_minimum_size = Vector2(500, 150); begin_btn.size = Vector2(500, 150); begin_btn.set_label("Begin"); begin_btn.style = "gold"; begin_btn.font_size = 78; daily_btn.position.y = 1430; chap_btn.position.y = 1560; credit_lbl.position.y = 1700
+	var done: bool = Game.daily_done == Game.today()
+	daily_btn.set_label("Road of the Day" + ("  \u00B7  walked" if done else "")); daily_btn.queue_redraw()
 	begin_btn.queue_redraw()
 
 func _build_chapters() -> void:
@@ -365,7 +371,7 @@ func _build_chapters() -> void:
 	lbl(p, "Chapters", F_T, 84, Color(1, 0.92, 0.7), Rect2(0, 24, 900, 110), HORIZONTAL_ALIGNMENT_CENTER)
 	for i in CHAPTERS.size():
 		var sid: String = CHAPTERS[i][0]
-		var b := btn(p, "chap_" + sid, CHAPTERS[i][1], Rect2(70, 150 + i * 150, 760, 130), "dark", 58)
+		var b := btn(p, "chap_" + sid, CHAPTERS[i][1], Rect2(70, 150 + i * 128, 760, 112), "dark", 52)
 		b.pressed.connect(func(): open_chapters(false); chapter_chosen.emit(sid))
 	lbl(p, "Chapters 6 and 7 are still to come.", F_S, 34, Color(0.8, 0.68, 0.45), Rect2(40, 1230, 820, 50), HORIZONTAL_ALIGNMENT_CENTER)
 	var cb := btn(p, "chap_close", "Close", Rect2(200, 1320, 500, 120), "gold", 64); cb.pressed.connect(func(): open_chapters(false))

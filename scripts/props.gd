@@ -231,7 +231,7 @@ static func scroll_item() -> Node3D:
 	P.mk(n, P.cyl(0.095, 0.095, 0.06, 8), Color(0.8, 0.2, 0.2), Vector3(0, 0, 0), Vector3.ONE, Vector3(0, 0, PI * 0.5))
 	return n
 
-static func ribbon(parent: Node, pts: Array, width: float, texn := "path", tint := Color.WHITE, y := 0.03) -> void:
+static func ribbon(parent: Node, pts: Array, width: float, texn := "path", tint := Color.WHITE, y := 0.03) -> MeshInstance3D:
 	var curve := Curve3D.new()
 	for p in pts: curve.add_point(p)
 	# Catmull-Rom smoothing via baked sampling
@@ -257,6 +257,7 @@ static func ribbon(parent: Node, pts: Array, width: float, texn := "path", tint 
 	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
 	var m := tmat(texn, tint, 1.0, false); m.uv1_scale = Vector3(1, 1, 1); m.uv1_triplanar = false; mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; parent.add_child(mi)
+	return mi
 
 static func bunting(parent: Node, a: Vector3, b: Vector3, n := 8) -> void:
 	var cols := [Color(0.75, 0.22, 0.25), Color(0.9, 0.72, 0.25), Color(0.2, 0.4, 0.62), Color(0.93, 0.9, 0.82)]

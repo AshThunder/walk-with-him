@@ -36,6 +36,12 @@ fic("sh_done", "shepherd", "Well done. They are all in the fold.")
 fic("sh_town", "shepherd", "Stay close to us, little one. Look into each stable and tell us where you see it.")
 fic("dove_seller", "seller", "Quick, little one! Two of my doves have flown loose. Bring them back to the cage!")
 fic("wise_thank", "wise", "Thank you, little one. We will follow the road you have drawn.")
+# ---- v0.4.0: Lead the Flock
+kjv("n_ps23_1", "narrator", "ps23_1")
+kjv("n_stone_lk2_11", "narrator", "lk2_10_11", part("lk2_10_11", "For unto you is born this day in the city of David a Saviour, which is Christ the Lord.")); L["n_stone_lk2_11"]["ref"] = "Luke 2:11 (KJV)"
+fic("sh_road", "shepherd", "The lambs have scattered along the road. Gather them, little one, and bring them home to the fire.")
+fic("sh_camp_all", "shepherd", "Every one of them is here. You led them well.")
+fic("sh_camp_lost", "shepherd", "Some wandered in the dark. Listen. They are finding the fire.")
 for i, d in L.items():
     o = OLD.get(i)
     if o and o.get("text") == d["text"] and "dur" in o: d["dur"] = o["dur"]

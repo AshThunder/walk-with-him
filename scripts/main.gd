@@ -3,6 +3,7 @@ extends Node
 var world: World
 var ui: UI
 var nat: Nativity
+var camp: Camp
 var _chapter_pick := ""
 var phase := "boot"
 var pot_mode := ""            # "" | "fill" | "draw"
@@ -20,7 +21,9 @@ var _closing := false
 
 ## Checkpoints. Each one knows its area, the HUD phase, the objective text and where the objective is.
 const STAGES := {
-	"n1_flock": {"nat": true, "area": "fields", "phase": "n1", "text": "Gather the lambs into the fold", "title": "The Night Field", "ch": "Chapter 1"},
+	"n1_flock": {"nat": true, "area": "fields", "phase": "n1r", "text": "Lead the lambs to the fire", "title": "The Night Field", "ch": "Chapter 1"},
+	"n1_classic": {"nat": true, "area": "fields", "phase": "n1", "text": "Gather the lambs into the fold", "title": "The Night Field (first version)", "ch": "Chapter 1"},
+	"daily": {"nat": true, "area": "fields", "phase": "daily", "text": "", "title": "Road of the Day", "ch": "Daily"},
 	"n2_sky": {"nat": true, "area": "fields", "phase": "n2", "text": "", "title": "Glory in the Sky", "ch": "Chapter 2"},
 	"n3_town": {"nat": true, "area": "town", "phase": "n3", "text": "", "title": "Bethlehem", "ch": "Chapter 3"},
 	"n4_temple": {"nat": true, "area": "temple", "phase": "n4", "text": "", "title": "The Temple", "ch": "Chapter 4"},
@@ -45,7 +48,9 @@ func _ready() -> void:
 	ui = UI.new(); add_child(ui)
 	ui.world = world
 	nat = Nativity.new(); add_child(nat); nat.setup(self)
+	camp = Camp.new(); add_child(camp); camp.setup(self)
 	ui.chapter_chosen.connect(func(id: String): _chapter_pick = id)
+	ui.daily_pressed.connect(func(): _chapter_pick = "daily")
 	world.trigger_hit.connect(_on_trigger)
 	Touch.world_tap.connect(_on_world_tap)
 	ui.begin_pressed.connect(func(): _begin_flag = true)
@@ -101,7 +106,7 @@ func _snapshot() -> Dictionary:
 		"scrolls": Game.scrolls.keys(), "age": Game.age_stage, "extra": nat.extra() if nat != null else 0, "music": Game.settings.music, "saved_at": Time.get_datetime_string_from_system()}
 
 func _save() -> bool:
-	if stage == "" or phase == "end" or world == null or not is_instance_valid(world): return false
+	if stage == "" or stage == "daily" or phase == "end" or world == null or not is_instance_valid(world): return false
 	return Game.write_save(_snapshot())
 
 func _stage(s: String) -> void:
@@ -166,7 +171,9 @@ func _title() -> void:
 		ui.show_title(false)
 		Game.reset_progress()
 		var id := _chapter_pick; _chapter_pick = ""
-		if id == "naz_start": Game.age_stage = "adult"; _intro()
+		if id == "daily":
+			Game.age_stage = "child"; stage = ""; nat.run("daily")
+		elif id == "naz_start": Game.age_stage = "adult"; _intro()
 		else:
 			await _resume({"stage": id, "name": Game.player_name, "girl": Game.player_girl, "fresh": true, "age": "adult" if not STAGES[id].get("nat", false) else "child"})
 		return
@@ -181,7 +188,7 @@ func _title() -> void:
 	Audio.sfx("select", -3.0)
 	ui.show_name(false)
 	var nm := Game.player_name; var gl := Game.player_girl
-	Game.reset_progress(); Game.player_name = nm; Game.player_girl = gl
+	Game.reset_progress(); Game.reset_meta(); Game.player_name = nm; Game.player_girl = gl
 	nat.run("n1_flock")
 
 func _intro() -> void:

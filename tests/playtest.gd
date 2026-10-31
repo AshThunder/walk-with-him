@@ -26,7 +26,7 @@ func run() -> void:
 	d.check(d.find_btn("chapters") != null, "title has a Chapters button")
 	await d.tap_btn("chapters")
 	d.check(m.ui.chap_open and d.find_btn("chap_cana_mary") != null and d.find_btn("chap_n4_temple") != null, "chapter list shows the Nativity chapters and Cana")
-	d.check(d.find_btn("chap_n1_flock") != null and d.find_btn("chap_naz_start") != null, "chapter list lists chapter 1 and Nazareth (6 and 7 are not offered)")
+	d.check(d.find_btn("chap_n1_flock") != null and d.find_btn("chap_n1_classic") != null and d.find_btn("chap_naz_start") != null, "chapter list lists chapter 1 and Nazareth (6 and 7 are not offered)")
 	m.notification(NOTIFICATION_WM_GO_BACK_REQUEST); await d.frames(3)
 	d.check(not m.ui.chap_open and m.phase == "title", "Back closes the chapter list instead of quitting")
 	await d.tap_btn("chapters"); await d.tap_btn("chap_n4_temple")
@@ -46,6 +46,11 @@ func run() -> void:
 	await d.tap_btn("go")
 	print("== chapter 1: gather the flock")
 	var nat = m.nat
+	# Begin now starts the new road (flock_play.gd tests it); this suite walks the first version of chapter 1 and everything after it
+	await d.advance_until(func(): return m.stage == "n1_flock" and m.phase == "n1r" and d.world().control, 60.0)
+	await d.relaunch(); m = d.main; nat = m.nat
+	await d.wait_btn("chapters", 20.0)
+	await d.tap_btn("chapters"); await d.tap_btn("chap_n1_classic")
 	await d.wait_for(func(): return m.phase == "n1", 20.0)
 	await d.advance_until(func(): return nat.herd and d.world().control, 60.0)
 	d.check(m.phase == "n1" and nat.herd and d.world().control, "ch1: control given, lambs can be herded")
@@ -75,6 +80,9 @@ func run() -> void:
 	await d.advance_until(func(): return d.find_btn("choice1") != null, 90.0)
 	d.check(d.find_btn("choice1") != null, "ch2: the host of angels, a choice of response (no game)")
 	await d.tap_btn("choice1")
+	await d.advance_until(func(): return d.find_btn("stone_keep") != null and d.find_btn("stone_keep").is_visible_in_tree(), 60.0)
+	await d.wait_btn("stone_keep", 30.0); await d.tap_btn("stone_keep")
+	await d.wait_btn("camp_go", 30.0); await d.frames(30); await d.tap_btn("camp_go")
 	await d.advance_until(func(): return m.phase == "n3" and d.world().control, 90.0)
 	print("== chapter 3: match the sign")
 	d.check(m.phase == "n3" and d.world().control, "ch3: Bethlehem, control given")

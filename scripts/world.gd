@@ -45,6 +45,8 @@ var yaw_spin := 0.0
 var follow_node: Node3D = null
 var follow_off := Vector3(0, 0.9, 0)
 var cam_k := 5.0
+var custom_move := false      # a controller (the flock road) moves the player itself
+var tap_walk := true           # a tap on the ground walks the player there
 var _stuck := 0.0
 var _t := 0.0
 var rng := RandomNumberGenerator.new()
@@ -104,6 +106,7 @@ func clear_area() -> void:
 	if player != null and is_instance_valid(player): player.queue_free()
 	player = null; jesus = null; follow_jesus = false; follow_node = null
 	circles.clear(); rects.clear(); triggers.clear(); npcs.clear(); guests.clear(); sheep_list.clear(); markers.clear(); scrolls.clear(); pots.clear(); trees.clear()
+	custom_move = false; tap_walk = true; yaw = 45.0; yaw_spin = 0.0; cam_k = 5.0; csize_goal = 13.0
 	wine_light = null; sparkles.clear(); beam_nodes.clear(); minidots.clear(); move_target = null; Touch.set_capture(false)
 	for c in fx_root.get_children(): c.queue_free()
 	root = Node3D.new(); add_child(root)
@@ -467,7 +470,7 @@ func npc_go(p: Person, dest: Vector3, speed := 2.2) -> void:
 
 # ------------------------------------------------------------------ per-frame
 func _on_tap(sp: Vector2) -> void:
-	if not control: return
+	if not control or not tap_walk: return
 	var g = screen_to_ground(sp)
 	if g == null: return
 	g.x = clampf(g.x, bounds.position.x + 0.5, bounds.end.x - 0.5); g.z = clampf(g.z, bounds.position.y + 0.5, bounds.end.y - 0.5)
@@ -502,8 +505,8 @@ func _collide(n: Node3D, r: float) -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	if player == null: return
-	if control: _step_player(dt)
-	else:
+	if control and not custom_move: _step_player(dt)
+	elif not control:
 		player.moving = lerpf(player.moving, 0.0, 0.3)
 	if follow_jesus and jesus != null and control: _step_follower(dt)
 	# triggers

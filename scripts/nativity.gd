@@ -9,6 +9,7 @@ const _Trace = preload("res://scripts/startrace.gd")
 var m                                   # Main: the story flow (cut, obj, wait, _stage ...)
 var w: World
 var ui: UI
+var fl: Flock                           # the flock on the road (chapter 1, Road of the Day) and at rest (chapter 2, camp)
 
 # ---- chapter 1: the flock
 const GATE := Vector3(7.0, 0, -4.4)
@@ -44,6 +45,7 @@ var _t := 0.0
 
 func setup(main) -> void:
 	m = main; w = main.world; ui = main.ui
+	fl = Flock.new(); add_child(fl); fl.setup(main)
 	Touch.gesture.connect(_on_gesture); Touch.world_tap.connect(_on_world_tap)
 
 # ================================================================== looks
@@ -70,19 +72,21 @@ func _face_now(p: Person, pt: Vector3) -> void:
 
 # ================================================================== flow
 func extra() -> int:
-	return folded if m.phase == "n1" else 0
+	return folded if m.phase == "n1" else 0     # only the classic chapter 1 carries a count; a road restarts from its beginning
 
 func _leave() -> void:
 	m.cut(true); m._nogoal(); ui.show_pour(false); ui.show_clues(false)
 	sky_on = false; cage_on = false; doves_on = false; herd = false; jump_wait = false
-	lambs.clear(); doves.clear(); Touch.set_capture(false)
+	lambs.clear(); doves.clear(); Touch.set_capture(false); fl.teardown()
 	if trace != null and is_instance_valid(trace): trace.queue_free()
 	trace = null
 	if ui.fade_rect.color.a < 0.99: await ui.fade(1.0, 0.8)
 
 func run(id: String, resume := false, extra_n := 0, pos = null, yaw := 0.0) -> void:
 	match id:
-		"n1_flock": await ch1(resume, extra_n, pos, yaw)
+		"n1_flock": await ch1()
+		"n1_classic": await ch1_classic(resume, extra_n, pos, yaw)
+		"daily": await road_daily()
 		"n2_sky": await ch2()
 		"n3_town": await ch3()
 		"n4_temple": await ch4()
@@ -111,7 +115,7 @@ func _on_gesture(kind: String, pos: Vector2) -> void:
 func _on_world_tap(sp: Vector2) -> void:
 	if jump_wait and w.ground_to_screen(jump_pos).distance_to(sp) < 130.0: jump_tapped = true
 
-# ================================================================== 1 · Gather the Flock
+# ================================================================== 1 (classic) · Gather the Flock: the first prototype, kept reachable from Chapters
 func _spawn_lambs(n_folded: int) -> void:
 	lambs.clear(); folded = 0
 	for i in LAMBS.size():
@@ -198,7 +202,7 @@ func _lamb_folded(L: Dictionary) -> void:
 	Audio.sfx("pickup", -6.0, 1.0 + 0.06 * folded)
 	ui.set_pour(folded, lambs.size(), "Lambs in the fold"); m._save()
 
-func ch1(resume: bool, extra_n: int, pos, yaw: float) -> void:
+func ch1_classic(resume: bool, extra_n: int, pos, yaw: float) -> void:
 	await _leave()
 	m.phase = "n1"
 	w.build_fields(); Audio.music("night", -9.0, 1.5)
@@ -208,7 +212,7 @@ func ch1(resume: bool, extra_n: int, pos, yaw: float) -> void:
 	m.cam_back(14.0); w.cam_snap(); m.cut(true)
 	await ui.fade(0.0, 1.0)
 	if not resume:
-		m._stage("n1_flock")
+		m._stage("n1_classic")
 		ui.area_card("The Night Field", "Bethlehem  \u00B7  Luke 2")
 		await m.wait(2.0)
 		await ui.verse("n_lk2_8")
@@ -230,19 +234,130 @@ func ch1(resume: bool, extra_n: int, pos, yaw: float) -> void:
 	await ui.line("sh_done", w.npcs.get("sh1"))
 	m._stage("n2_sky"); run("n2_sky")
 
-# ================================================================== 2 · The angels' announcement
+# ================================================================== 1 · Lead the Flock (the road), and the Road of the Day
+func ch1() -> void:
+	await _road(Roads.story_cfg(), true)
+
+func road_daily() -> void:
+	await _road(Roads.daily_cfg(Game.today()), false)
+
+func _flock_names(min_n: int) -> Array:
+	var out: Array = Game.roster.duplicate()
+	while out.size() < min_n: out.append(Game.lamb_name(out.size()))
+	return out
+
+func _light_to_end(pal_name: String, dur: float) -> void:
+	var e: Array = Roads.pal(pal_name).end
+	var st: Array = [w.sun.light_color, w.sun.light_energy, w.sun.rotation_degrees, w.env.ambient_light_color, w.env.ambient_light_energy, w.env.background_color]
+	var tw := create_tween(); tw.tween_method(func(u: float): fl._mood_mix(st, e, u), 0.0, 1.0, dur)
+
+func _journal(title: String, text: String) -> void:
+	for i in range(Game.journal.size() - 1, -1, -1):
+		if Game.journal[i].get("title", "") == title: Game.journal.remove_at(i)
+	Game.journal.append({"title": title, "text": text})
+
+func _keep_stone(line_id: String, lamb: String, road: String) -> Dictionary:
+	var d: Dictionary = Game.lines[line_id]
+	var stone := {"id": line_id, "ref": d.ref, "text": d.text, "lamb": lamb, "road": road}
+	for i in range(Game.stones.size() - 1, -1, -1):
+		if Game.stones[i] is Dictionary and Game.stones[i].get("id", "") == line_id: Game.stones.remove_at(i)
+	Game.stones.append(stone)
+	return stone
+
+func _road(cfg: Dictionary, story: bool) -> void:
+	await _leave()
+	m.phase = "n1r" if story else "daily"
+	var lay := Roads.build(w, cfg)
+	var goal: Vector3 = lay.goal
+	Audio.music("night" if cfg.pal == "dusk" else "village", -10.0, 1.5)
+	fl.populate(cfg, lay)
+	m.cut(true); w.control = false
+	await ui.fade(0.0, 1.0)
+	if story: m._stage("n1_flock")
+	else: m.stage = "daily"; m._save_cd = 15.0
+	ui.area_card(cfg.title, cfg.sub)
+	await m.wait(1.6)
+	# spot the destination: the camera drifts to the fire and back
+	w.cam_k = 1.5
+	w.cam_look(goal + Vector3(0, 0.9, 5.0), 15.0, -42.0)
+	await m.wait(2.4)
+	if story: await ui.line("sh_road", w.npcs.get("sh0"))
+	else: await m.wait(0.8)
+	w.cam_follow(w.player, fl._csize(), -48.0, fl.cam_off)
+	await m.wait(1.5)
+	w.cam_k = 4.0
+	m.obj("Lead the lambs to the fire", goal + Vector3(0, -1.0, 0), goal)
+	fl.begin()
+	ui.toast("Drag to lead.  Tap to swing your staff.", 6.0)
+	while not fl.arrived(): await Game.frame(self)
+	# arrival: the flock settles, the light changes, one chime
+	var res := fl.finish()
+	m.cut(true); m._nogoal()
+	Audio.sfx("chime", -2.0)
+	_light_to_end(cfg.pal, 4.5)
+	w.cam_k = 1.8
+	w.cam_look(goal + Vector3(0, 0.6, 10.0), 15.5, -62.0)
+	await m.wait(3.4)
+	var lost: Array = res.lost
+	if not lost.is_empty(): fl.bring_lost(lost)
+	await ui.line("sh_camp_all" if lost.is_empty() else "sh_camp_lost", w.npcs.get("sh0"))
+	var t0 := 0.0
+	while not lost.is_empty() and not fl.all_settled(lost) and t0 < 16.0: await Game.frame(self); t0 += get_process_delta_time()
+	await m.wait(1.0)
+	await m.camp.result_card(res, cfg)
+	# what is kept
+	for nm in fl.arrived_names():
+		if not Game.roster.has(nm): Game.roster.append(nm)
+	var star: String = res.star
+	var txt := "%d lambs came to the fire." % res.followers
+	if not lost.is_empty(): txt += " %s wandered in the dark and were found at the fire." % m.camp._names(lost, 3)
+	if star != "": txt += " You will remember %s, who %s." % [star, "strayed and was gathered again" if res.star_rescued > 0 else "was the first to follow you"]
+	Game.best[cfg.id] = maxi(int(Game.best.get(cfg.id, 0)), int(res.met))
+	if story:
+		_journal(cfg.title, txt)
+		var stone := _keep_stone("n_ps23_1", star if star != "" else str(Game.roster[0]), cfg.title)
+		Game.save_meta()
+		m._stage("n2_sky")
+		await m.camp.stone_card(stone)
+		await m.camp.open("Walk on")
+		m._stage("n2_sky"); run("n2_sky")
+	else:
+		_journal("%s  \u00B7  %s" % [cfg.title, Game.today()], txt)
+		if Game.daily_done != Game.today(): Game.daily_total += 1
+		Game.daily_done = Game.today()
+		Game.save_meta()
+		await m.camp.open("Back to the title")
+		m._to_title()
+
+# ================================================================== 2 · The angels' announcement: a spectacle. No score, no timer, nothing to lose.
+func _glory_motes(at: Vector3, col: Color) -> CPUParticles3D:
+	var pr := CPUParticles3D.new(); pr.amount = 90; pr.lifetime = 7.0; pr.preprocess = 3.0; pr.emitting = false
+	var qm := QuadMesh.new(); qm.size = Vector2(0.13, 0.13); pr.mesh = qm
+	var mt := StandardMaterial3D.new(); mt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; mt.albedo_color = col; mt.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	pr.material_override = mt; pr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pr.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX; pr.emission_box_extents = Vector3(8.0, 0.2, 7.0)
+	pr.direction = Vector3(0, 1, 0); pr.spread = 12.0; pr.initial_velocity_min = 0.5; pr.initial_velocity_max = 1.1; pr.gravity = Vector3.ZERO
+	pr.scale_amount_min = 0.5; pr.scale_amount_max = 1.5; pr.position = at; w.root.add_child(pr)
+	return pr
+
 func ch2() -> void:
 	await _leave()
 	m.phase = "n2"
-	w.build_fields(); Audio.music("night", -12.0, 1.5)
-	_spawn_lambs(5)
-	for L in lambs: L.state = "fold"
-	w.minidots.clear()
-	var base := Vector3(-3.0, 4.0, 3.0)
+	var cfg := Roads.story_cfg()
+	var lay := Roads.build(w, cfg)
+	(lay.road as MeshInstance3D).visible = false
+	var goal: Vector3 = lay.goal
+	var e: Array = Roads.pal("dusk").end
+	w.mood(e[0], e[1], e[2], e[3], e[4], e[5])
+	Audio.music("night", -12.0, 1.5)
+	w.player.position = goal + Vector3(2.9, 0, 3.7); w.player.face_point(goal); w.player.rotation.y = w.player.target_yaw
+	var names := _flock_names(14)
+	fl.settle_at(goal, names, goal)
+	var base := goal + Vector3(1.0, 4.0, 3.4)
 	w.cam_look(base, 15.0, -30.0); w.cam_snap(); m.cut(true)
 	await ui.fade(0.0, 1.2)
 	ui.area_card("Glory in the Sky", "Luke 2")
-	await m.wait(2.2)
+	await m.wait(3.0)
 	# the sky: stars (one MultiMesh) and, hidden until the look, the angel and the host
 	var fwd := w.cam_fwd(); var rt := w.cam_right(); var ctr := Vector3(base.x, 0, base.z)
 	var rng := RandomNumberGenerator.new(); rng.seed = 5
@@ -251,15 +366,16 @@ func ch2() -> void:
 		var s := rng.randf_range(0.07, 0.2)
 		xfs.append(Transform3D(Basis().scaled(Vector3(s, s, s)), ctr + fwd * 34.0 + rt * rng.randf_range(-16, 16) + Vector3(0, rng.randf_range(4, 36), 0)))
 	var stars := Areas.multi_mesh(w.root, P.sphere(1.0, 4, 3), xfs, Areas.glow(Color(0.92, 0.94, 1.0)), false)
-	var angel := Areas.light_column(16.0, 1.3, Color(1.0, 0.86, 0.45), 3.0); angel.position = ctr + fwd * 24.0 + Vector3(0, 6.0, 0); w.root.add_child(angel); angel.visible = false
+	var angel := Areas.light_column(16.0, 1.3, Color(1.0, 0.86, 0.45), 3.0); angel.position = ctr + fwd * 26.0 + Vector3(0, 9.0, 0); w.root.add_child(angel); angel.visible = false
 	var host: Array = []
 	for i in 7:
-		var c := Areas.light_column(4.0, 0.5, Color(1.0, 0.9, 0.55), 3.0); var a := -0.9 + i * 0.3
+		var c := Areas.light_column(4.0, 0.5, Color(1.0, 0.9, 0.55), 3.0)
 		var side := -1.0 if i % 2 == 0 else 1.0
-		c.position = ctr + fwd * 22.0 + rt * (side * (3.6 + 1.7 * (i / 2))) + Vector3(0, 8.0 + 3.5 * ((i * 5) % 3) , 0)
+		c.position = ctr + fwd * 24.0 + rt * (side * (3.6 + 1.7 * (i / 2))) + Vector3(0, 10.0 + 3.5 * ((i * 5) % 3), 0)
 		w.root.add_child(c); c.visible = false; c.scale = Vector3(1, 0.02, 1); host.append(c)
 	angel.scale = Vector3(1, 0.02, 1)
-	# look up: drag a finger upwards
+	var motes := _glory_motes(Vector3(goal.x, 0.3, goal.z + 1.0), Color(1.0, 0.9, 0.55))
+	# look up: drag a finger upwards (it always happens; if no one drags, the sky lifts by itself)
 	w.control = false; Touch.set_capture(true); sky_on = true; _lp = Vector2.ZERO
 	w.pitch_goal = -30.0
 	var t0 := 0.0; var hinted := false
@@ -269,11 +385,15 @@ func ch2() -> void:
 		if t0 > 5.5 and not hinted: hinted = true; ui.toast("Slide your finger slowly up the screen", 4.0)
 		if t0 > 9.0: w.pitch_goal = 12.0
 	sky_on = false; Touch.set_capture(false)
-	# the glory of the Lord
-	Audio.music("wonder", -6.0, 1.0); Audio.sfx("complete", -8.0)
-	angel.visible = true; create_tween().tween_property(angel, "scale", Vector3.ONE, 1.6)
+	# the glory of the Lord: light, not noise
+	Audio.music("wonder", -6.0, 1.0); Audio.sfx("chime", -4.0)
+	angel.visible = true; create_tween().tween_property(angel, "scale", Vector3.ONE, 2.2)
+	motes.emitting = true
 	var sun_e := w.sun.light_energy
-	create_tween().tween_property(w.sun, "light_energy", sun_e * 1.8, 1.5)
+	var sun_c := w.sun.light_color
+	var tl := create_tween().set_parallel(true)
+	tl.tween_property(w.sun, "light_energy", sun_e * 1.9, 2.4); tl.tween_property(w.sun, "light_color", Color(1.0, 0.9, 0.62), 2.4)
+	tl.tween_property(w.env, "ambient_light_energy", w.env.ambient_light_energy * 1.4, 2.4)
 	var sh: Array = []
 	for k in ["sh0", "sh1", "sh2"]: sh.append(w.npcs.get(k))
 	for p in sh: p.face(fwd); p.pose = "awe"
@@ -282,25 +402,34 @@ func ch2() -> void:
 	await ui.line("a_tidings")
 	await ui.line("a_sign")
 	for i in host.size():
-		host[i].visible = true; create_tween().tween_property(host[i], "scale", Vector3.ONE, 1.2).set_delay(i * 0.18)
-	await m.wait(2.6)
+		host[i].visible = true; create_tween().tween_property(host[i], "scale", Vector3.ONE, 1.6).set_delay(i * 0.22)
+	await m.wait(3.2)
 	await ui.verse("n_lk2_13_14")
 	var c: int = await ui.choose(["Kneel", "Praise", "Look up in wonder"])
 	var pz: String = ["kneel", "praise", "awe"][c]
 	w.player.pose = pz
 	for p in sh: p.pose = pz
-	await m.wait(3.6)
+	await m.wait(4.0)
+	motes.emitting = false
 	var tw := create_tween().set_parallel(true)
-	tw.tween_property(angel, "scale", Vector3(1, 0.02, 1), 1.8)
-	for hc in host: tw.tween_property(hc, "scale", Vector3(1, 0.02, 1), 1.4)
-	tw.tween_property(w.sun, "light_energy", sun_e, 2.0)
-	w.cam_look(Vector3(-3.4, 0.9, 3.4), 14.0, -33.0)
-	await m.wait(2.0)
+	tw.tween_property(angel, "scale", Vector3(1, 0.02, 1), 2.2)
+	for hc in host: tw.tween_property(hc, "scale", Vector3(1, 0.02, 1), 1.8)
+	tw.tween_property(w.sun, "light_energy", sun_e, 2.6); tw.tween_property(w.sun, "light_color", sun_c, 2.6)
+	tw.tween_property(w.env, "ambient_light_energy", e[4], 2.6)
+	w.cam_look(goal + Vector3(0, 0.9, 9.5), 14.0, -60.0)
+	await m.wait(2.8)
 	w.player.pose = "idle"
 	for p in sh: p.pose = "idle"
-	stars.queue_free(); angel.queue_free()
+	stars.queue_free(); angel.queue_free(); motes.queue_free()
 	for hc in host: hc.queue_free()
 	Audio.music("night", -9.0, 1.5)
+	# the Memory Stone and the camp
+	var who := str(names[0])
+	_journal("Glory in the Sky", "An angel stood over the field, and the glory of the Lord shone round about. The flock lay still by the fire. You will remember %s, who did not stir." % who)
+	var stone := _keep_stone("n_stone_lk2_11", who, "Glory in the Sky")
+	Game.save_meta()
+	await m.camp.stone_card(stone)
+	await m.camp.open("Walk on")
 	await ui.line("sh_go", sh[0])
 	m._stage("n3_town"); run("n3_town")
 

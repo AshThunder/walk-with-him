@@ -313,5 +313,40 @@
   "ref": "",
   "text": "Thank you, little one. We will follow the road you have drawn.",
   "dur": 5.7
+ },
+ "n_ps23_1": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Psalm 23:1 (KJV)",
+  "text": "The LORD is my shepherd; I shall not want.",
+  "dur": 2.68
+ },
+ "n_stone_lk2_11": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:11 (KJV)",
+  "text": "For unto you is born this day in the city of David a Saviour, which is Christ the Lord.",
+  "dur": 4.7
+ },
+ "sh_road": {
+  "speaker": "shepherd",
+  "kind": "fiction",
+  "ref": "",
+  "text": "The lambs have scattered along the road. Gather them, little one, and bring them home to the fire.",
+  "dur": 5.7
+ },
+ "sh_camp_all": {
+  "speaker": "shepherd",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Every one of them is here. You led them well.",
+  "dur": 2.52
+ },
+ "sh_camp_lost": {
+  "speaker": "shepherd",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Some wandered in the dark. Listen. They are finding the fire.",
+  "dur": 3.56
  }
 }

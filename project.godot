@@ -4,7 +4,7 @@ config_version=5
 [application]
 
 config/name="Walk With Him"
-config/description="Vertical slice: Nazareth to Cana (John 2:1-11). Touch-first low-poly 3D."
+config/description="Lead the Flock: lead a named flock along the road, the angels, Memory Stones, a camp journal. Touch-first low-poly 3D."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://art/icon.png"

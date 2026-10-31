@@ -15,6 +15,7 @@ const DISPLAY := {"jesus": "Jesus", "mary": "Mary", "naomi": "Naomi", "steward":
 func _ready() -> void:
 	kjv = _load_json("res://data/kjv.json")
 	lines = _load_json("res://data/lines.json")
+	load_meta()
 
 func _load_json(p: String) -> Dictionary:
 	var f := FileAccess.open(p, FileAccess.READ)
@@ -50,6 +51,47 @@ func write_save(d: Dictionary) -> bool:
 
 func delete_save() -> void:
 	if FileAccess.file_exists(SAVE_PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+# ------------------------------------------------------------------ the keepsake file: flock, Memory Stones, journal, Road of the Day (kept apart from the checkpoint save, never reset by New Game)
+const META_PATH := "user://walk_with_him_meta.json"
+const META_TMP := "user://walk_with_him_meta.tmp"
+const LAMB_NAMES := ["Pip", "Clover", "Bramble", "Dew", "Fern", "Tansy", "Wren", "Moss", "Juniper", "Sorrel", "Thistle", "Willow", "Posy", "Barley", "Nettle", "Rue", "Saffron", "Hazel", "Linnet", "Cricket", "Mint", "Basil", "Poppy", "Sage",
+	"Lark", "Rosemary", "Burdock", "Marigold", "Flax", "Daisy", "Acorn", "Oat", "Primrose", "Wick", "Teasel", "Cobnut", "Rowan", "Bracken", "Tuft", "Snowdrop", "Quill", "Pebble", "Nutmeg", "Dandelion", "Heather", "Plum", "Bluebell", "Sparrow"]
+var roster: Array = []            # the named flock, in the order the lambs were met
+var stones: Array = []            # the Memory Stones carried: {id, ref, text, lamb, road}
+var journal: Array = []           # [{title, text}] one page per camp
+var daily_done := ""              # date of the last Road of the Day walked (YYYY-MM-DD); no streak is kept
+var daily_total := 0
+var tint := "plain"               # flock colour: plain | gold | rose (unlocked by stones)
+var best := {}                    # road id -> goals met (0..3), only ever goes up
+
+func reset_meta() -> void:
+	roster = []; stones = []; journal = []; daily_done = ""; daily_total = 0; tint = "plain"; best = {}
+	save_meta()
+
+func load_meta() -> void:
+	roster = []; stones = []; journal = []; daily_done = ""; daily_total = 0; tint = "plain"; best = {}
+	if not FileAccess.file_exists(META_PATH): return
+	var f := FileAccess.open(META_PATH, FileAccess.READ)
+	if f == null: return
+	var d = JSON.parse_string(f.get_as_text())
+	if typeof(d) != TYPE_DICTIONARY: return
+	roster = (d.get("roster", []) as Array).duplicate(); stones = (d.get("stones", []) as Array).duplicate(); journal = (d.get("journal", []) as Array).duplicate()
+	daily_done = str(d.get("daily_done", "")); daily_total = int(d.get("daily_total", 0)); tint = str(d.get("tint", "plain")); best = (d.get("best", {}) as Dictionary).duplicate()
+
+func save_meta() -> bool:
+	var f := FileAccess.open(META_TMP, FileAccess.WRITE)
+	if f == null: return false
+	f.store_string(JSON.stringify({"roster": roster, "stones": stones, "journal": journal, "daily_done": daily_done, "daily_total": daily_total, "tint": tint, "best": best})); f.close()
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(META_TMP), ProjectSettings.globalize_path(META_PATH)) == OK
+
+## The i-th lamb's name. The first 48 are distinct; after that a number is added so no two lambs share a name.
+func lamb_name(i: int) -> String:
+	return LAMB_NAMES[i % LAMB_NAMES.size()] + ("" if i < LAMB_NAMES.size() else " %d" % (i / LAMB_NAMES.size() + 1))
+
+func today() -> String:
+	var d := Time.get_date_dict_from_system()
+	return "%04d-%02d-%02d" % [d.year, d.month, d.day]
 
 # ------------------------------------------------------------------ coroutine helpers that are safe when the owner is freed (scene reload, return to title)
 func alive(o: Variant) -> bool:

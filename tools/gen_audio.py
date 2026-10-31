@@ -154,9 +154,52 @@ def extra():
     for bar, ph in enumerate([[(0,0,1,4),(4,2,1,2),(6,3,1,2)], [(0,4,1,3),(4,3,1,2),(6,2,1,2)], [(0,2,1,2),(2,3,1,2),(4,4,1,4)], [(0,3,1,2),(2,2,1,2),(4,0,1,4)]]):
         for s, dg, oc, ds in ph: mel.append((bar * 8 + s, dg, oc, ds))
     track("temple", 60, 4, mel, "D---T---", vol=0.6)
+
+def v04():
+    """v0.4.0 additions (Lead the Flock): bleat, recruit pop, staff, wolf yelp, arrival chime, memory stone. Own RNG so older files never change."""
+    global rng
+    rng = np.random.default_rng(40)
+    o = ROOT + "/audio/sfx/"
+    # bleat: a trembling nasal vowel (additive harmonics shaped by two formants), pitch sags a little
+    d = 0.55; t = t_(d); f0 = np.linspace(360, 270, len(t)) * (1 + 0.05 * np.sin(2 * np.pi * 30 * t)); ph = 2 * np.pi * np.cumsum(f0) / SR
+    x = np.zeros(len(t))
+    for k in range(1, 22):
+        fk = k * 310.0; a = np.exp(-((fk - 850) / 420) ** 2) + 0.7 * np.exp(-((fk - 1900) / 600) ** 2) + 0.12 * np.exp(-((fk - 3200) / 800) ** 2)
+        x += np.sin(k * ph) * a / k ** 0.35
+    x *= (0.65 + 0.35 * np.sin(2 * np.pi * 30 * t + 1.2)) * env(len(t), 0.04, 0.16)
+    x += 0.05 * hp(rng.uniform(-1, 1, len(t)), 1500) * env(len(t), 0.02, 0.2)
+    save(o + "bleat.ogg", norm(x, 0.55))
+    # recruit pop: a soft bubble rising
+    t = t_(0.14); ph = 2 * np.pi * np.cumsum(np.linspace(380, 900, len(t))) / SR
+    save(o + "pop.ogg", norm(np.sin(ph) * np.exp(-t * 26) + 0.3 * np.sin(2 * ph) * np.exp(-t * 40), 0.6))
+    # staff tap: wood knock plus a short airy whoosh
+    t = t_(0.35); knock = np.sin(2 * np.pi * 180 * t) * np.exp(-t * 28) + 0.5 * np.sin(2 * np.pi * 420 * t) * np.exp(-t * 45)
+    sw = hp(rng.uniform(-1, 1, len(t)), 1200) * np.exp(-((t - 0.05) / 0.06) ** 2) * 0.35
+    save(o + "staff.ogg", norm(knock + sw, 0.75))
+    # wolf yelp: short falling saw
+    t = t_(0.28); f0 = np.linspace(900, 420, len(t)); ph = 2 * np.pi * np.cumsum(f0) / SR
+    x = sum(np.sin(k * ph) / k for k in range(1, 8)) * env(len(t), 0.01, 0.1) * (1 + 0.1 * np.sin(2 * np.pi * 18 * t))
+    save(o + "yelp.ogg", norm(lpf(x, 3000), 0.6))
+    # wolf growl: low noisy rumble that swells
+    t = t_(0.7); f0 = 70 + 8 * np.sin(2 * np.pi * 9 * t); ph = 2 * np.pi * np.cumsum(f0) / SR
+    x = sum(np.sin(k * ph) / k ** 0.6 for k in range(1, 12)) * (0.7 + 0.3 * rng.uniform(-1, 1, len(t))) * env(len(t), 0.2, 0.3)
+    save(o + "growl.ogg", norm(lpf(x, 900), 0.5))
+    # arrival chime: a warm bell chord (F A C) with long decay, sparse and quiet
+    x = np.zeros(int(SR * 3.6))
+    for i, fq in enumerate([349.2, 440.0, 523.3, 698.5]):
+        t = t_(3.2); s = (np.sin(2 * np.pi * fq * t) + 0.35 * np.sin(2 * np.pi * fq * 2.76 * t) * np.exp(-t * 3) + 0.2 * np.sin(2 * np.pi * fq * 5.4 * t) * np.exp(-t * 6)) * np.exp(-t * (1.1 + 0.2 * i))
+        p = int(i * 0.16 * SR); x[p:p + len(s)] += s[:len(x) - p] * (0.6 if i < 3 else 0.35)
+    save(o + "chime.ogg", norm(x, 0.55))
+    # memory stone: a low stone knock then a high shimmer
+    x = np.zeros(int(SR * 3.0)); t = t_(0.5); kn = thud(130, 55, 0.5) * 0.9 + 0.3 * np.sin(2 * np.pi * 260 * t) * np.exp(-t * 14); x[:len(kn)] += kn
+    for i, fq in enumerate([1046.5, 1568.0, 2093.0]):
+        t = t_(2.4); s = np.sin(2 * np.pi * fq * t) * np.exp(-t * (2.2 + i)) * 0.25; p = int((0.25 + i * 0.12) * SR); x[p:p + len(s)] += s[:len(x) - p]
+    save(o + "stone.ogg", norm(x, 0.6))
+
 if __name__ == "__main__":
     import sys
     for d in ["sfx", "music"]: os.makedirs(ROOT + "/audio/" + d, exist_ok=True)
-    if "extra" in sys.argv: extra()
-    else: sfx(); music(); extra()
+    if "v04" in sys.argv: v04()
+    elif "extra" in sys.argv: extra()
+    else: sfx(); music(); extra(); v04()
     print("audio done")
