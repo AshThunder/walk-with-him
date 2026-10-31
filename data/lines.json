@@ -1,0 +1,156 @@
+{
+ "n_lk4_16": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 4:16 (KJV)",
+  "text": "And he came to Nazareth, where he had been brought up: and, as his custom was, he went into the synagogue on the sabbath day, and stood up for to read.",
+  "dur": 8.4
+ },
+ "n_j2_1": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "John 2:1 (KJV)",
+  "text": "And the third day there was a marriage in Cana of Galilee; and the mother of Jesus was there:",
+  "dur": 4.8
+ },
+ "n_j2_2": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "John 2:2 (KJV)",
+  "text": "And both Jesus was called, and his disciples, to the marriage.",
+  "dur": 3.78
+ },
+ "n_j2_6": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "John 2:6 (KJV)",
+  "text": "And there were set there six waterpots of stone, after the manner of the purifying of the Jews, containing two or three firkins apiece.",
+  "dur": 7.4
+ },
+ "n_j2_9": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "John 2:9 (KJV)",
+  "text": "When the ruler of the feast had tasted the water that was made wine, and knew not whence it was: (but the servants which drew the water knew;) the governor of the feast called the bridegroom,",
+  "dur": 9.9
+ },
+ "n_j2_11": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "John 2:11 (KJV)",
+  "text": "This beginning of miracles did Jesus in Cana of Galilee, and manifested forth his glory; and his disciples believed on him.",
+  "dur": 7.6
+ },
+ "n_ps119_105": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Psalm 119:105 (KJV)",
+  "text": "Thy word is a lamp unto my feet, and a light unto my path.",
+  "dur": 3.78
+ },
+ "n_prov3_5": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Proverbs 3:5 (KJV)",
+  "text": "Trust in the LORD with all thine heart; and lean not unto thine own understanding.",
+  "dur": 5.3
+ },
+ "n_ps34_8": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Psalm 34:8 (KJV)",
+  "text": "O taste and see that the LORD is good: blessed is the man that trusteth in him.",
+  "dur": 4.8
+ },
+ "j_woman": {
+  "speaker": "jesus",
+  "kind": "kjv",
+  "ref": "John 2:4 (KJV)",
+  "text": "Woman, what have I to do with thee? mine hour is not yet come.",
+  "dur": 5.2
+ },
+ "j_fill": {
+  "speaker": "jesus",
+  "kind": "kjv",
+  "ref": "John 2:7 (KJV)",
+  "text": "Fill the waterpots with water.",
+  "dur": 2.16
+ },
+ "j_draw": {
+  "speaker": "jesus",
+  "kind": "kjv",
+  "ref": "John 2:8 (KJV)",
+  "text": "Draw out now, and bear unto the governor of the feast.",
+  "dur": 4.1
+ },
+ "m_nowine": {
+  "speaker": "mary",
+  "kind": "kjv",
+  "ref": "John 2:3 (KJV)",
+  "text": "They have no wine.",
+  "dur": 1.05
+ },
+ "m_servants": {
+  "speaker": "mary",
+  "kind": "kjv",
+  "ref": "John 2:5 (KJV)",
+  "text": "Whatsoever he saith unto you, do it.",
+  "dur": 2.27
+ },
+ "s_taste": {
+  "speaker": "steward",
+  "kind": "kjv",
+  "ref": "John 2:10 (KJV)",
+  "text": "And saith unto him, Every man at the beginning doth set forth good wine; and when men have well drunk, then that which is worse: but thou hast kept the good wine until now.",
+  "dur": 9.3
+ },
+ "j_invite": {
+  "speaker": "jesus",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Come with me to Cana. There is a wedding, and we are invited.",
+  "dur": 5.5
+ },
+ "naomi_ask": {
+  "speaker": "naomi",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Child, I dropped my father's scroll near the olive tree. Could you find it for me?",
+  "dur": 4.8
+ },
+ "naomi_thanks": {
+  "speaker": "naomi",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Bless you! Keep its words close, child. They will light your road.",
+  "dur": 4.2
+ },
+ "sv_brim": {
+  "speaker": "servant",
+  "kind": "fiction",
+  "ref": "",
+  "text": "They are full, right up to the brim.",
+  "dur": 1.78
+ },
+ "g1": {
+  "speaker": "guest",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Wine? But those jars held only water!",
+  "dur": 2.41
+ },
+ "g2": {
+  "speaker": "guestf",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Taste it! I have never tasted wine so good.",
+  "dur": 3.06
+ },
+ "g3": {
+  "speaker": "guest",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Blessed be God!",
+  "dur": 0.95
+ }
+}

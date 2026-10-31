@@ -1,0 +1,4 @@
+_dl/
+build/
+.godot/
+shots/*.tmp

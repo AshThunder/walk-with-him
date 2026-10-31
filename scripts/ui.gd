@@ -1,0 +1,275 @@
+class_name UI
+extends CanvasLayer
+## All 2D: HUD, dialogue, verse cards, title, name picker, fades. Designed for 1080x1920; wrappers shift with taller screens.
+signal begin_pressed
+signal name_chosen
+signal again_pressed
+signal skip
+var root: Control
+var top: Control
+var mid: Control
+var bot: Control
+var F_T: Font
+var F_I: Font
+var F_U: Font
+var F_S: Font
+# hud
+var obj_panel: Panel
+var obj_lbl: Label
+var scroll_lbl: Label
+var snd_btn: TButton
+var joy: Control
+# dialogue
+var dlg: Panel
+var dlg_name: Label
+var dlg_text: Label
+var dlg_ref: Label
+var adv: TButton
+var _skip_ok := false
+# verse
+var verse_card: Panel
+var verse_text: Label
+var verse_ref: Label
+# misc
+var fade_rect: ColorRect
+var area_lbl: Label
+var area_sub: Label
+var toast_lbl: Label
+var toast_tw: Tween
+var toast_panel: Panel
+var pour_panel: Panel
+var pour_lbl: Label
+var pour_bar: ColorRect
+var pour_fill: ColorRect
+var title_grp: Control
+var name_grp: Control
+var end_grp: Control
+var chips: Array = []
+var boy_btn: TButton
+var girl_btn: TButton
+var name_idx := 0
+var hud_on := false
+var in_line := false
+
+func _ready() -> void:
+	layer = 10
+	F_T = load("res://fonts/ZillaSlab-Bold.ttf"); F_I = load("res://fonts/ZillaSlab-MediumItalic.ttf"); F_U = load("res://fonts/BarlowCondensed-Bold.ttf"); F_S = load("res://fonts/BarlowCondensed-SemiBold.ttf")
+	root = Control.new(); root.set_anchors_preset(Control.PRESET_FULL_RECT); root.mouse_filter = Control.MOUSE_FILTER_IGNORE; add_child(root)
+	top = _wrap(); mid = _wrap(); bot = _wrap()
+	get_viewport().size_changed.connect(_layout); _layout()
+	_build_hud(); _build_dialogue(); _build_verse(); _build_misc(); _build_title(); _build_name(); _build_end()
+	set_hud(false)
+
+func _wrap() -> Control:
+	var c := Control.new(); c.mouse_filter = Control.MOUSE_FILTER_IGNORE; c.size = Vector2(1080, 1920); root.add_child(c); return c
+
+func _layout() -> void:
+	var h: float = get_viewport().get_visible_rect().size.y
+	if mid: mid.position.y = (h - 1920.0) * 0.5
+	if bot: bot.position.y = h - 1920.0
+
+# ---------- helpers
+func panel(parent: Control, r: Rect2, bg: Color, border := Color(0.93, 0.74, 0.34), rad := 30, bw := 3) -> Panel:
+	var p := Panel.new(); p.position = r.position; p.size = r.size; p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new(); sb.bg_color = bg; sb.border_color = border; sb.set_border_width_all(bw); sb.set_corner_radius_all(rad)
+	sb.shadow_color = Color(0, 0, 0, 0.35); sb.shadow_size = 10; p.add_theme_stylebox_override("panel", sb); parent.add_child(p); return p
+
+func lbl(parent: Control, t: String, f: Font, fs: int, col: Color, r: Rect2, align := HORIZONTAL_ALIGNMENT_LEFT, wrap := false, outline := 0) -> Label:
+	var l := Label.new(); if wrap: l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.text = t; l.position = r.position; l.size = r.size; l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_override("font", f); l.add_theme_font_size_override("font_size", fs); l.add_theme_color_override("font_color", col)
+	if outline > 0: l.add_theme_constant_override("outline_size", outline); l.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.02, 0.95))
+	l.horizontal_alignment = align
+	if wrap: l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(l); return l
+
+func btn(parent: Control, id: String, t: String, r: Rect2, style := "gold", fs := 54) -> TButton:
+	var b := TButton.new(id, t, style); b.position = r.position; b.size = r.size; b.font_size = fs; parent.add_child(b); return b
+
+func tw_alpha(n: CanvasItem, a: float, t := 0.4) -> void:
+	create_tween().tween_property(n, "modulate:a", a, t)
+
+# ---------- HUD
+func _build_hud() -> void:
+	obj_panel = panel(top, Rect2(28, 56, 760, 120), Color(0.1, 0.06, 0.04, 0.78), Color(0.93, 0.74, 0.34, 0.8), 28)
+	lbl(obj_panel, "GOAL", F_U, 28, Color(0.93, 0.74, 0.34), Rect2(26, 8, 200, 34))
+	obj_lbl = lbl(obj_panel, "", F_S, 38, Color(1, 0.95, 0.82), Rect2(26, 40, 710, 76), HORIZONTAL_ALIGNMENT_LEFT, true)
+	scroll_lbl = lbl(top, "Scrolls 0 / 3", F_U, 36, Color(1, 0.92, 0.65), Rect2(28, 186, 400, 44), HORIZONTAL_ALIGNMENT_LEFT, false, 8)
+	snd_btn = btn(top, "sound", "Sound: On", Rect2(820, 66, 236, 88), "dark", 36)
+	snd_btn.pressed.connect(_toggle_sound)
+	joy = Control.new(); joy.set_script(_JoyDraw); joy.size = Vector2(1080, 1920); joy.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(joy)
+
+func _toggle_sound() -> void:
+	var on: bool = not Game.settings.music
+	Game.settings.music = on; Game.settings.sfx = on; Game.settings.voice = on
+	snd_btn.set_label("Sound: On" if on else "Sound: Off")
+	if on: Audio.music_vol(Audio.MUSIC_DB, 0.3)
+	else: Audio.music_vol(-80.0, 0.3); Audio.stop_voice()
+
+func set_hud(v: bool) -> void:
+	hud_on = v; top.visible = v; joy.visible = v
+
+func set_objective(t: String) -> void:
+	obj_lbl.text = t
+	obj_panel.modulate = Color(1.6, 1.4, 1.0); create_tween().tween_property(obj_panel, "modulate", Color.WHITE, 0.8)
+
+func update_scrolls() -> void:
+	scroll_lbl.text = "Scrolls %d / 3" % Game.scrolls.size()
+
+# ---------- dialogue
+func _build_dialogue() -> void:
+	dlg = panel(bot, Rect2(36, 1320, 1008, 470), Color(0.1, 0.06, 0.04, 0.9), Color(0.93, 0.74, 0.34), 36)
+	dlg_name = lbl(dlg, "", F_T, 50, Color(0.97, 0.78, 0.36), Rect2(40, 20, 900, 64))
+	dlg_text = lbl(dlg, "", F_S, 46, Color(1, 0.96, 0.86), Rect2(40, 92, 928, 290), HORIZONTAL_ALIGNMENT_LEFT, true)
+	dlg_ref = lbl(dlg, "", F_I, 32, Color(0.8, 0.68, 0.45), Rect2(40, 398, 700, 44))
+	lbl(dlg, "tap to continue", F_U, 30, Color(0.65, 0.55, 0.4), Rect2(720, 398, 250, 44), HORIZONTAL_ALIGNMENT_RIGHT)
+	dlg.visible = false; dlg.modulate.a = 0.0
+	adv = btn(root, "advance", "", Rect2(0, 0, 1080, 1920), "ghost"); adv.visible = false; adv.pressed.connect(func(): if _skip_ok: skip.emit())
+
+func _wait_tap_or(secs: float) -> void:
+	var t := 0.0; var sk := [false]; var cb := func(): sk[0] = true
+	skip.connect(cb)
+	_skip_ok = false
+	while t < secs and not sk[0]:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		if t > 0.5: _skip_ok = true
+	skip.disconnect(cb); _skip_ok = false
+
+func line(id: String, who: Person = null) -> void:
+	var d: Dictionary = Game.lines[id]
+	var dur: float = Audio.play_voice(id)
+	dlg_name.text = Game.DISPLAY.get(d.speaker, "")
+	dlg_text.text = d.text; dlg_text.visible_ratio = 0.0; dlg_ref.text = (d.ref if d.kind == "kjv" else "")
+	if toast_tw: toast_tw.kill()
+	toast_panel.modulate.a = 0.0
+	dlg.visible = true; adv.visible = true; in_line = true
+	create_tween().tween_property(dlg, "modulate:a", 1.0, 0.2)
+	var rd := minf(dur * 0.85, 9.0) if dur > 0.5 else 1.0
+	create_tween().tween_property(dlg_text, "visible_ratio", 1.0, maxf(rd, 0.6))
+	if who != null: who.talking = true
+	await _wait_tap_or(maxf(dur, d.text.length() * 0.035) + 0.7)
+	if who != null: who.talking = false
+	Audio.stop_voice(); in_line = false
+	var tw := create_tween(); tw.tween_property(dlg, "modulate:a", 0.0, 0.2); await tw.finished
+	dlg.visible = false; adv.visible = false
+
+# ---------- scripture card
+func _build_verse() -> void:
+	verse_card = panel(mid, Rect2(70, 520, 940, 800), Color(0.95, 0.88, 0.7, 0.97), Color(0.55, 0.32, 0.12), 40, 6)
+	lbl(verse_card, "SCRIPTURE", F_U, 34, Color(0.55, 0.32, 0.12), Rect2(0, 36, 940, 44), HORIZONTAL_ALIGNMENT_CENTER)
+	verse_text = lbl(verse_card, "", F_I, 52, Color(0.2, 0.1, 0.04), Rect2(60, 110, 820, 560), HORIZONTAL_ALIGNMENT_CENTER, true)
+	verse_ref = lbl(verse_card, "", F_T, 44, Color(0.45, 0.2, 0.08), Rect2(0, 690, 940, 60), HORIZONTAL_ALIGNMENT_CENTER)
+	verse_card.visible = false; verse_card.modulate.a = 0.0
+
+func verse(id: String) -> void:
+	var d: Dictionary = Game.lines[id]
+	var dur: float = Audio.play_voice(id)
+	verse_text.text = d.text
+	verse_ref.text = d.ref
+	var fs := 52 if d.text.length() < 140 else (44 if d.text.length() < 230 else 38)
+	verse_text.add_theme_font_size_override("font_size", fs)
+	verse_card.visible = true; adv.visible = true
+	verse_card.scale = Vector2(0.94, 0.94); verse_card.pivot_offset = verse_card.size * 0.5
+	var tw := create_tween().set_parallel(true); tw.tween_property(verse_card, "modulate:a", 1.0, 0.45); tw.tween_property(verse_card, "scale", Vector2.ONE, 0.45)
+	await _wait_tap_or(maxf(dur, 2.5) + 1.2)
+	Audio.stop_voice()
+	var t2 := create_tween(); t2.tween_property(verse_card, "modulate:a", 0.0, 0.35); await t2.finished
+	verse_card.visible = false; adv.visible = false
+
+# ---------- misc overlays
+func _build_misc() -> void:
+	toast_panel = panel(bot, Rect2(90, 1640, 900, 120), Color(0.1, 0.06, 0.04, 0.82), Color(0.93, 0.74, 0.34, 0.7), 30)
+	toast_lbl = lbl(toast_panel, "", F_S, 42, Color(1, 0.95, 0.8), Rect2(20, 10, 860, 100), HORIZONTAL_ALIGNMENT_CENTER, true)
+	toast_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER; toast_panel.modulate.a = 0.0
+	area_lbl = lbl(top, "", F_T, 96, Color(1, 0.93, 0.7), Rect2(0, 330, 1080, 120), HORIZONTAL_ALIGNMENT_CENTER, false, 18)
+	area_sub = lbl(top, "", F_S, 44, Color(1, 0.88, 0.62), Rect2(0, 450, 1080, 60), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
+	area_lbl.modulate.a = 0.0; area_sub.modulate.a = 0.0
+	pour_panel = panel(top, Rect2(200, 250, 680, 150), Color(0.1, 0.06, 0.04, 0.85), Color(0.93, 0.74, 0.34), 30)
+	pour_lbl = lbl(pour_panel, "", F_U, 46, Color(1, 0.95, 0.8), Rect2(0, 14, 680, 56), HORIZONTAL_ALIGNMENT_CENTER)
+	pour_bar = ColorRect.new(); pour_bar.color = Color(0.25, 0.18, 0.12); pour_bar.position = Vector2(50, 92); pour_bar.size = Vector2(580, 34); pour_panel.add_child(pour_bar)
+	pour_fill = ColorRect.new(); pour_fill.color = Color(0.4, 0.68, 0.92); pour_fill.position = Vector2(50, 92); pour_fill.size = Vector2(0, 34); pour_panel.add_child(pour_fill)
+	pour_panel.visible = false
+	fade_rect = ColorRect.new(); fade_rect.color = Color(0.05, 0.03, 0.02, 1.0); fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT); fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(fade_rect)
+
+func fade(to: float, t := 0.8) -> void:
+	var tw := create_tween(); tw.tween_property(fade_rect, "color:a", to, t); await tw.finished
+
+func toast(t: String, secs := 3.0) -> void:
+	toast_lbl.text = t
+	if toast_tw: toast_tw.kill()
+	var tw := create_tween(); toast_tw = tw; tw.tween_property(toast_panel, "modulate:a", 1.0, 0.3); tw.tween_interval(secs); tw.tween_property(toast_panel, "modulate:a", 0.0, 0.5)
+
+func area_card(t: String, sub: String) -> void:
+	area_lbl.text = t; area_sub.text = sub
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(area_lbl, "modulate:a", 1.0, 0.8); tw.tween_property(area_sub, "modulate:a", 1.0, 1.0)
+	tw.chain().tween_interval(2.4)
+	tw.chain().tween_property(area_lbl, "modulate:a", 0.0, 1.0); tw.parallel().tween_property(area_sub, "modulate:a", 0.0, 1.0)
+
+func show_pour(on: bool) -> void:
+	pour_panel.visible = on
+func set_pour(n: int, total: int, label := "Tap a waterpot to pour") -> void:
+	pour_lbl.text = "%s   %d / %d" % [label, n, total]; pour_fill.size.x = 580.0 * float(n) / total
+
+# ---------- title / name / end
+func _build_title() -> void:
+	title_grp = Control.new(); title_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; title_grp.size = Vector2(1080, 1920); mid.add_child(title_grp)
+	var shade := ColorRect.new(); shade.color = Color(0.1, 0.05, 0.02, 0.38); shade.size = Vector2(1080, 1920); shade.position = Vector2(0, 0); shade.mouse_filter = Control.MOUSE_FILTER_IGNORE; title_grp.add_child(shade)
+	lbl(title_grp, "A JOURNEY IN GALILEE", F_U, 44, Color(1, 0.86, 0.5), Rect2(0, 330, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
+	lbl(title_grp, "Walk With Him", F_T, 150, Color(1, 0.94, 0.76), Rect2(0, 390, 1080, 190), HORIZONTAL_ALIGNMENT_CENTER, false, 24)
+	lbl(title_grp, "Nazareth to Cana  \u00B7  John 2:1-11", F_S, 50, Color(1, 0.88, 0.62), Rect2(0, 590, 1080, 66), HORIZONTAL_ALIGNMENT_CENTER, false, 12)
+	var b := btn(title_grp, "begin", "Begin", Rect2(290, 1280, 500, 150), "gold", 78); b.pressed.connect(func(): begin_pressed.emit())
+	lbl(title_grp, "Scripture: King James Version", F_U, 32, Color(1, 0.9, 0.7), Rect2(0, 1470, 1080, 44), HORIZONTAL_ALIGNMENT_CENTER, false, 8)
+	title_grp.visible = false
+
+func show_title(v: bool) -> void:
+	title_grp.visible = v
+
+func _build_name() -> void:
+	name_grp = Control.new(); name_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; name_grp.size = Vector2(1080, 1920); mid.add_child(name_grp)
+	var p := panel(name_grp, Rect2(50, 330, 980, 1260), Color(0.1, 0.06, 0.04, 0.9), Color(0.93, 0.74, 0.34), 40)
+	lbl(p, "Who walks with Him?", F_T, 74, Color(1, 0.92, 0.7), Rect2(0, 36, 980, 100), HORIZONTAL_ALIGNMENT_CENTER)
+	lbl(p, "You are a shepherd's child of Nazareth.", F_S, 38, Color(0.85, 0.75, 0.55), Rect2(0, 130, 980, 50), HORIZONTAL_ALIGNMENT_CENTER)
+	boy_btn = btn(p, "boy", "Boy", Rect2(110, 210, 350, 110), "dark", 56); girl_btn = btn(p, "girl", "Girl", Rect2(520, 210, 350, 110), "dark", 56)
+	boy_btn.pressed.connect(func(): _set_girl(false)); girl_btn.pressed.connect(func(): _set_girl(true))
+	for i in 8:
+		var c := btn(p, "chip%d" % i, "", Rect2(70 + (i % 2) * 450, 370 + (i / 2) * 124, 410, 104), "dark", 54)
+		var idx := i; c.pressed.connect(func(): _pick_name(idx)); chips.append(c)
+	var go := btn(p, "go", "Walk", Rect2(240, 1090, 500, 130), "gold", 74); go.pressed.connect(func(): name_chosen.emit())
+	name_grp.visible = false
+
+func show_name(v: bool) -> void:
+	name_grp.visible = v
+	if v: _set_girl(Game.player_girl)
+
+func _set_girl(g: bool) -> void:
+	Game.player_girl = g; boy_btn.set_on(not g); girl_btn.set_on(g)
+	var nm: Array = Game.names()
+	for i in 8: chips[i].set_label(nm[i])
+	_pick_name(0)
+
+func _pick_name(i: int) -> void:
+	name_idx = i; Game.player_name = Game.names()[i]
+	for j in 8: chips[j].set_on(j == i)
+
+func _build_end() -> void:
+	end_grp = Control.new(); end_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; end_grp.size = Vector2(1080, 1920); mid.add_child(end_grp)
+	var sh := ColorRect.new(); sh.color = Color(0.08, 0.04, 0.02, 0.62); sh.size = Vector2(1080, 1920); sh.mouse_filter = Control.MOUSE_FILTER_IGNORE; end_grp.add_child(sh)
+	var p := panel(end_grp, Rect2(60, 400, 960, 1020), Color(0.95, 0.88, 0.7, 0.98), Color(0.55, 0.32, 0.12), 40, 6)
+	lbl(p, "The Beginning of Miracles", F_T, 66, Color(0.4, 0.18, 0.06), Rect2(0, 44, 960, 90), HORIZONTAL_ALIGNMENT_CENTER)
+	var d: Dictionary = Game.lines.get("n_j2_11", {"text": "", "ref": ""})
+	lbl(p, d.text, F_I, 46, Color(0.2, 0.1, 0.04), Rect2(70, 170, 820, 340), HORIZONTAL_ALIGNMENT_CENTER, true)
+	lbl(p, d.ref, F_T, 40, Color(0.45, 0.2, 0.08), Rect2(0, 520, 960, 56), HORIZONTAL_ALIGNMENT_CENTER)
+	end_grp.set_meta("scrolls", lbl(p, "", F_U, 44, Color(0.4, 0.18, 0.06), Rect2(0, 620, 960, 60), HORIZONTAL_ALIGNMENT_CENTER))
+	lbl(p, "End of the Cana slice. Thank you for walking.", F_S, 36, Color(0.4, 0.25, 0.12), Rect2(40, 700, 880, 100), HORIZONTAL_ALIGNMENT_CENTER, true)
+	var b := btn(p, "again", "Walk again", Rect2(230, 840, 500, 130), "gold", 70); b.pressed.connect(func(): again_pressed.emit())
+	end_grp.visible = false
+
+func show_end() -> void:
+	end_grp.get_meta("scrolls").text = "Scrolls kept: %d of 3" % Game.scrolls.size()
+	end_grp.visible = true; end_grp.modulate.a = 0.0; create_tween().tween_property(end_grp, "modulate:a", 1.0, 0.8)
+
+# ---------- joystick drawing
+const _JoyDraw = preload("res://scripts/joydraw.gd")
