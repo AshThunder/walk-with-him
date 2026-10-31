@@ -11,13 +11,25 @@ func boot() -> void:
 	add_child(main)
 	await frames(2)
 
+## Simulate the OS killing the app and the player opening it again: Android pauses (autosave), the process dies, a new one boots.
+func relaunch() -> void:
+	main.notification(NOTIFICATION_APPLICATION_PAUSED)
+	main.queue_free(); await frames(3)
+	Touch.reset(); get_tree().paused = false
+	Game.reset_progress(); Game.player_name = "Shepherd"; Game.player_girl = false
+	main = load("res://scenes/main.tscn").instantiate()
+	add_child(main)
+	await frames(2)
+
 func check(cond: bool, msg: String) -> void:
 	checks += 1
 	if cond: print("  ok   ", msg)
 	else: fails.append(msg); print("  FAIL ", msg)
 
 func frames(n := 1) -> void:
-	for i in n: await get_tree().process_frame
+	for i in n:
+		if not is_inside_tree(): await Game.never      # the test scene itself was reloaded
+		await get_tree().process_frame
 
 func touch(pressed: bool, pos: Vector2, idx := 0) -> void:
 	var e = InputEventScreenTouch.new(); e.index = idx; e.pressed = pressed; e.position = pos
@@ -96,7 +108,7 @@ func walk_to(goal: Vector3, radius := 1.0, timeout_s := 40.0) -> bool:
 				stuck = 0.0
 			var sp: Vector2 = w.ground_to_screen(tgt)
 			var vs := get_viewport().get_visible_rect().size
-			sp = sp.clamp(Vector2(60, 330), vs - Vector2(60, 330))
+			sp = sp.clamp(Vector2(60, 470), vs - Vector2(60, 330))
 			await tap(sp)
 		await frames(8); var dt := get_process_delta_time() * 10.0; t += dt
 		if w.player.position.distance_to(last) < 0.15: stuck += dt
@@ -120,4 +132,8 @@ func shot(n: String) -> void:
 	await frames(3)
 	if DisplayServer.get_name() == "headless": return
 	var img = get_viewport().get_texture().get_image()
-	img.save_png(ProjectSettings.globalize_path("res://shots/%s.png" % n)); print("shot ", n, " ", img.get_size())
+	img.save_png(ProjectSettings.globalize_path("res://shots/%s.png" % n)); print("shot ", n, " ", img.get_size()); stats(n)
+
+func stats(tag: String) -> void:
+	var P := Performance
+	print("STATS %s objs=%d nodes=%d draws=%d prims=%d texMB=%.1f vidMB=%.1f bufMB=%.1f staticMB=%.1f" % [tag, P.get_monitor(P.OBJECT_COUNT), P.get_monitor(P.OBJECT_NODE_COUNT), P.get_monitor(P.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), P.get_monitor(P.RENDER_TOTAL_PRIMITIVES_IN_FRAME), P.get_monitor(P.RENDER_TEXTURE_MEM_USED)/1048576.0, P.get_monitor(P.RENDER_VIDEO_MEM_USED)/1048576.0, P.get_monitor(P.RENDER_BUFFER_MEM_USED)/1048576.0, P.get_monitor(P.MEMORY_STATIC)/1048576.0])

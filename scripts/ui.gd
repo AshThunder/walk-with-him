@@ -5,6 +5,27 @@ signal begin_pressed
 signal name_chosen
 signal again_pressed
 signal skip
+signal continue_pressed
+signal save_pressed
+signal title_pressed
+const _Minimap = preload("res://scripts/minimap.gd")
+const _Waypoint = preload("res://scripts/waypoint.gd")
+const _MapScreen = preload("res://scripts/mapscreen.gd")
+var world: World                 # set by main: the minimap, map and waypoint read the live world from here
+var goal = null                  # Vector3 of the current objective, or null
+var ovl: Control
+var minimap: Control
+var wp: Control
+var map_btn: TButton
+var menu_btn: TButton
+var menu_grp: Control
+var map_grp: Control
+var menu_open := false
+var map_open := false
+var cont_btn: TButton
+var begin_btn: TButton
+var cont_info: Label
+var credit_lbl: Label
 var root: Control
 var top: Control
 var mid: Control
@@ -58,6 +79,8 @@ func _ready() -> void:
 	top = _wrap(); mid = _wrap(); bot = _wrap()
 	get_viewport().size_changed.connect(_layout); _layout()
 	_build_hud(); _build_dialogue(); _build_verse(); _build_misc(); _build_title(); _build_name(); _build_end()
+	ovl = _wrap(); _layout(); _build_overlays()
+	process_mode = Node.PROCESS_MODE_ALWAYS      # the UI keeps running while the world is paused (pause menu, map)
 	set_hud(false)
 
 func _wrap() -> Control:
@@ -67,6 +90,7 @@ func _layout() -> void:
 	var h: float = get_viewport().get_visible_rect().size.y
 	if mid: mid.position.y = (h - 1920.0) * 0.5
 	if bot: bot.position.y = h - 1920.0
+	if ovl: ovl.position.y = (h - 1920.0) * 0.5
 
 # ---------- helpers
 func panel(parent: Control, r: Rect2, bg: Color, border := Color(0.93, 0.74, 0.34), rad := 30, bw := 3) -> Panel:
@@ -95,23 +119,64 @@ func _build_hud() -> void:
 	lbl(obj_panel, "GOAL", F_U, 28, Color(0.93, 0.74, 0.34), Rect2(26, 8, 200, 34))
 	obj_lbl = lbl(obj_panel, "", F_S, 38, Color(1, 0.95, 0.82), Rect2(26, 40, 710, 76), HORIZONTAL_ALIGNMENT_LEFT, true)
 	scroll_lbl = lbl(top, "Scrolls 0 / 3", F_U, 36, Color(1, 0.92, 0.65), Rect2(28, 186, 400, 44), HORIZONTAL_ALIGNMENT_LEFT, false, 8)
-	snd_btn = btn(top, "sound", "Sound: On", Rect2(820, 66, 236, 88), "dark", 36)
-	snd_btn.pressed.connect(_toggle_sound)
+	map_btn = btn(top, "map", "Map", Rect2(806, 56, 120, 120), "dark", 40); map_btn.pressed.connect(func(): open_map(true))
+	menu_btn = btn(top, "menu", "Menu", Rect2(936, 56, 118, 120), "dark", 38); menu_btn.pressed.connect(func(): open_menu(true))
+	minimap = Control.new(); minimap.set_script(_Minimap); minimap.ui = self; minimap.position = Vector2(826, 196); minimap.size = Vector2(228, 228); minimap.clip_contents = true; minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE; top.add_child(minimap)
+	var mb := btn(top, "minimap", "", Rect2(826, 196, 228, 228), "ghost"); mb.pressed.connect(func(): open_map(true))
 	joy = Control.new(); joy.set_script(_JoyDraw); joy.size = Vector2(1080, 1920); joy.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(joy)
+	wp = Control.new(); wp.set_script(_Waypoint); wp.ui = self; wp.set_anchors_preset(Control.PRESET_FULL_RECT); wp.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(wp)
 
 func _toggle_sound() -> void:
 	var on: bool = not Game.settings.music
 	Game.settings.music = on; Game.settings.sfx = on; Game.settings.voice = on
-	snd_btn.set_label("Sound: On" if on else "Sound: Off")
+	if snd_btn: snd_btn.set_label("Sound: On" if on else "Sound: Off")
 	if on: Audio.music_vol(Audio.MUSIC_DB, 0.3)
 	else: Audio.music_vol(-80.0, 0.3); Audio.stop_voice()
 
 func set_hud(v: bool) -> void:
-	hud_on = v; top.visible = v; joy.visible = v
+	hud_on = v; top.visible = v; joy.visible = v; wp.visible = v
 
 func set_objective(t: String) -> void:
 	obj_lbl.text = t
 	obj_panel.modulate = Color(1.6, 1.4, 1.0); create_tween().tween_property(obj_panel, "modulate", Color.WHITE, 0.8)
+
+func overlay_open() -> bool:
+	return menu_open or map_open
+
+func _sync_pause() -> void:
+	get_tree().paused = menu_open or map_open
+	Touch.reset()
+
+func open_menu(v: bool) -> void:
+	if v: map_open = false; map_grp.visible = false
+	menu_open = v; menu_grp.visible = v; _sync_pause()
+	if v: snd_btn.set_label("Sound: On" if Game.settings.music else "Sound: Off")
+
+func open_map(v: bool) -> void:
+	if v: menu_open = false; menu_grp.visible = false
+	map_open = v; map_grp.visible = v; _sync_pause()
+
+func _build_overlays() -> void:
+	# pause menu (the block button is first so it swallows every touch that misses a menu button)
+	menu_grp = Control.new(); menu_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; menu_grp.size = Vector2(1080, 1920); ovl.add_child(menu_grp)
+	var sh := ColorRect.new(); sh.color = Color(0.05, 0.03, 0.02, 0.72); sh.position = Vector2(-300, -1200); sh.size = Vector2(1680, 4400); sh.mouse_filter = Control.MOUSE_FILTER_IGNORE; menu_grp.add_child(sh)
+	btn(menu_grp, "block", "", Rect2(-300, -1200, 1680, 4400), "ghost")
+	var p := panel(menu_grp, Rect2(130, 380, 820, 1100), Color(0.1, 0.06, 0.04, 0.95), Color(0.93, 0.74, 0.34), 40)
+	lbl(p, "Paused", F_T, 90, Color(1, 0.92, 0.7), Rect2(0, 30, 820, 120), HORIZONTAL_ALIGNMENT_CENTER)
+	var rb := btn(p, "resume", "Resume", Rect2(80, 180, 660, 130), "gold", 68); rb.pressed.connect(func(): open_menu(false))
+	var sv := btn(p, "save", "Save game", Rect2(80, 340, 660, 120), "dark", 58); sv.pressed.connect(func(): save_pressed.emit())
+	var mp := btn(p, "menu_map", "Open map", Rect2(80, 490, 660, 120), "dark", 58); mp.pressed.connect(func(): open_map(true))
+	snd_btn = btn(p, "sound", "Sound: On", Rect2(80, 640, 660, 120), "dark", 58); snd_btn.pressed.connect(_toggle_sound)
+	var tt := btn(p, "title", "Save and go to title", Rect2(80, 790, 660, 120), "dark", 54); tt.pressed.connect(func(): title_pressed.emit())
+	lbl(p, "The game saves by itself at each step of the story,\nand whenever you leave the app.", F_S, 34, Color(0.8, 0.68, 0.45), Rect2(40, 940, 740, 110), HORIZONTAL_ALIGNMENT_CENTER, true)
+	menu_grp.visible = false
+	# full map
+	map_grp = Control.new(); map_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; map_grp.size = Vector2(1080, 1920); ovl.add_child(map_grp)
+	var sh2 := ColorRect.new(); sh2.color = Color(0.05, 0.03, 0.02, 0.8); sh2.position = Vector2(-300, -1200); sh2.size = Vector2(1680, 4400); sh2.mouse_filter = Control.MOUSE_FILTER_IGNORE; map_grp.add_child(sh2)
+	btn(map_grp, "block2", "", Rect2(-300, -1200, 1680, 4400), "ghost")
+	var ms := Control.new(); ms.set_script(_MapScreen); ms.ui = self; ms.size = Vector2(1080, 1920); ms.mouse_filter = Control.MOUSE_FILTER_IGNORE; map_grp.add_child(ms)
+	var cb := btn(map_grp, "mapclose", "Close", Rect2(290, 1660, 500, 120), "gold", 66); cb.pressed.connect(func(): open_map(false))
+	map_grp.visible = false
 
 func update_scrolls() -> void:
 	scroll_lbl.text = "Scrolls %d / 3" % Game.scrolls.size()
@@ -131,7 +196,7 @@ func _wait_tap_or(secs: float) -> void:
 	skip.connect(cb)
 	_skip_ok = false
 	while t < secs and not sk[0]:
-		await get_tree().process_frame
+		await Game.frame(self)
 		t += get_process_delta_time()
 		if t > 0.5: _skip_ok = true
 	skip.disconnect(cb); _skip_ok = false
@@ -182,10 +247,10 @@ func _build_misc() -> void:
 	toast_panel = panel(bot, Rect2(90, 1640, 900, 120), Color(0.1, 0.06, 0.04, 0.82), Color(0.93, 0.74, 0.34, 0.7), 30)
 	toast_lbl = lbl(toast_panel, "", F_S, 42, Color(1, 0.95, 0.8), Rect2(20, 10, 860, 100), HORIZONTAL_ALIGNMENT_CENTER, true)
 	toast_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER; toast_panel.modulate.a = 0.0
-	area_lbl = lbl(top, "", F_T, 96, Color(1, 0.93, 0.7), Rect2(0, 330, 1080, 120), HORIZONTAL_ALIGNMENT_CENTER, false, 18)
-	area_sub = lbl(top, "", F_S, 44, Color(1, 0.88, 0.62), Rect2(0, 450, 1080, 60), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
+	area_lbl = lbl(top, "", F_T, 96, Color(1, 0.93, 0.7), Rect2(0, 450, 1080, 120), HORIZONTAL_ALIGNMENT_CENTER, false, 18)
+	area_sub = lbl(top, "", F_S, 44, Color(1, 0.88, 0.62), Rect2(0, 570, 1080, 60), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
 	area_lbl.modulate.a = 0.0; area_sub.modulate.a = 0.0
-	pour_panel = panel(top, Rect2(200, 250, 680, 150), Color(0.1, 0.06, 0.04, 0.85), Color(0.93, 0.74, 0.34), 30)
+	pour_panel = panel(top, Rect2(60, 250, 680, 150), Color(0.1, 0.06, 0.04, 0.85), Color(0.93, 0.74, 0.34), 30)
 	pour_lbl = lbl(pour_panel, "", F_U, 46, Color(1, 0.95, 0.8), Rect2(0, 14, 680, 56), HORIZONTAL_ALIGNMENT_CENTER)
 	pour_bar = ColorRect.new(); pour_bar.color = Color(0.25, 0.18, 0.12); pour_bar.position = Vector2(50, 92); pour_bar.size = Vector2(580, 34); pour_panel.add_child(pour_bar)
 	pour_fill = ColorRect.new(); pour_fill.color = Color(0.4, 0.68, 0.92); pour_fill.position = Vector2(50, 92); pour_fill.size = Vector2(0, 34); pour_panel.add_child(pour_fill)
@@ -220,12 +285,22 @@ func _build_title() -> void:
 	lbl(title_grp, "A JOURNEY IN GALILEE", F_U, 44, Color(1, 0.86, 0.5), Rect2(0, 330, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
 	lbl(title_grp, "Walk With Him", F_T, 150, Color(1, 0.94, 0.76), Rect2(0, 390, 1080, 190), HORIZONTAL_ALIGNMENT_CENTER, false, 24)
 	lbl(title_grp, "Nazareth to Cana  \u00B7  John 2:1-11", F_S, 50, Color(1, 0.88, 0.62), Rect2(0, 590, 1080, 66), HORIZONTAL_ALIGNMENT_CENTER, false, 12)
-	var b := btn(title_grp, "begin", "Begin", Rect2(290, 1280, 500, 150), "gold", 78); b.pressed.connect(func(): begin_pressed.emit())
-	lbl(title_grp, "Scripture: King James Version", F_U, 32, Color(1, 0.9, 0.7), Rect2(0, 1470, 1080, 44), HORIZONTAL_ALIGNMENT_CENTER, false, 8)
+	cont_info = lbl(title_grp, "", F_S, 40, Color(1, 0.9, 0.66), Rect2(0, 1160, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
+	cont_btn = btn(title_grp, "continue", "Continue", Rect2(290, 1230, 500, 150), "gold", 78); cont_btn.pressed.connect(func(): continue_pressed.emit())
+	begin_btn = btn(title_grp, "begin", "Begin", Rect2(290, 1280, 500, 150), "gold", 78); begin_btn.pressed.connect(func(): begin_pressed.emit())
+	credit_lbl = lbl(title_grp, "Scripture: King James Version", F_U, 32, Color(1, 0.9, 0.7), Rect2(0, 1470, 1080, 44), HORIZONTAL_ALIGNMENT_CENTER, false, 8)
 	title_grp.visible = false
 
-func show_title(v: bool) -> void:
+## `info` non-empty = a saved game exists: show Continue (with that text) above New Game.
+func show_title(v: bool, info := "") -> void:
 	title_grp.visible = v
+	var has := info != ""
+	cont_btn.visible = has; cont_info.visible = has; cont_info.text = info
+	if has:
+		begin_btn.position = Vector2(290, 1410); begin_btn.size = Vector2(500, 120); begin_btn.set_label("New Game"); begin_btn.style = "dark"; begin_btn.font_size = 60; credit_lbl.position.y = 1580
+	else:
+		begin_btn.position = Vector2(290, 1280); begin_btn.size = Vector2(500, 150); begin_btn.set_label("Begin"); begin_btn.style = "gold"; begin_btn.font_size = 78; credit_lbl.position.y = 1470
+	begin_btn.queue_redraw()
 
 func _build_name() -> void:
 	name_grp = Control.new(); name_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; name_grp.size = Vector2(1080, 1920); mid.add_child(name_grp)

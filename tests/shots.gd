@@ -17,6 +17,7 @@ func ui() -> UI: return main.ui
 func watcher() -> void:
 	while not tour_done:
 		await frames(3)
+		if not is_instance_valid(main) or main.get("ui") == null: continue
 		var u := ui()
 		if u.in_line and u.dlg_text.visible_ratio > 0.97 and u.dlg.modulate.a > 0.95:
 			var k := u.dlg_text.text
@@ -44,6 +45,10 @@ func adv(done: Callable, timeout_s := 120.0) -> bool:
 		await frames(6); t += get_process_delta_time() * 6.0
 	return done.call()
 
+func map_shot(tag: String) -> void:
+	await tap_btn("map"); await sec(1.2); await shot(tag)
+	await tap_btn("mapclose"); await frames(4)
+
 func run() -> void:
 	watcher()
 	var m = main
@@ -58,6 +63,8 @@ func run() -> void:
 	await walk_to(Vector3(-0.4, 0, 3.0), 2.4)
 	await adv(func(): return world().control and world().triggers.filter(func(t): return t.id == "scroll_prov3_5")[0].active)
 	await sec(1.0); await shot("04_nazareth_find_scroll")
+	await map_shot("21_map_nazareth")
+	await tap_btn("menu"); await sec(1.0); await shot("24_pause_menu"); await tap_btn("resume"); await frames(4)
 	await walk_to(Vector3(-6.6, 0, 6.0), 1.2)
 	await adv(func(): return Game.scrolls.has("prov3_5") and world().control)
 	await walk_to(Vector3(-0.4, 0, 3.0), 2.4)
@@ -73,11 +80,18 @@ func run() -> void:
 	await adv(func(): return Game.scrolls.has("ps119_105") and world().control)
 	await walk_to(Vector3(34.0, 0, 2.2), 1.5)
 	await shot("07_road_middle")
+	await map_shot("22_map_road")
+	await relaunch(); m = main
+	await wait_btn("continue"); await sec(1.5); await shot("23_title_continue")
+	await tap_btn("continue")
+	await wait_for(func(): return m.phase == "road" and world().control, 20.0)
+	await sec(2.0); await shot("25_after_continue")
 	await walk_to(Vector3(47.5, 0, 0.2), 1.6, 80.0)
 	await wait_for(func(): return m.phase == "cana", 30.0)
 	await sec(1.0); await shot("08_cana_arrival")
 	await adv(func(): return world().control and m.phase == "cana", 60.0)
 	await sec(1.0); await shot("09_cana_feast")
+	await map_shot("26_map_cana")
 	await walk_to(Vector3(2.4, 0, 6.8), 1.8)
 	await adv(func(): return Game.scrolls.has("ps34_8") and world().control)
 	await walk_via([Vector3(0.5, 0, 5.0), Vector3(0.5, 0, 1.0), Vector3(3.0, 0, 0.0)], 3.0)

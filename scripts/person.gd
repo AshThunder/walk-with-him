@@ -22,6 +22,9 @@ var _blink := 0.0
 var _eyes: Array = []
 var hand_r: Node3D
 var _mats := {}
+var _detail: Array = []           # fine facial parts, hidden on distant people (fewer draw calls on phones)
+var _detail_on := true
+var name_lbl: Label3D
 static var _flat_cache := {}
 static var _mat_cache := {}
 
@@ -95,12 +98,12 @@ static func make(o: Dictionary) -> Person:
 		var ey := Node3D.new(); ey.position = Vector3(0.072 * s, 0.025, -0.165); p._head.add_child(ey)
 		var w := MeshInstance3D.new(); w.mesh = sphere(0.034, 10, 6); w.material_override = mat(Color(0.97, 0.95, 0.92), 0.4); w.scale = Vector3(1.0, 0.85, 0.5); ey.add_child(w)
 		var ir := MeshInstance3D.new(); ir.mesh = sphere(0.021, 8, 5); ir.material_override = mat(o.get("eyes", Color(0.2, 0.12, 0.06)), 0.3); ir.position = Vector3(0, 0, -0.012); ir.scale = Vector3(1, 1, 0.6); ey.add_child(ir)
-		p._eyes.append(ey)
-		var brow := mk(p._head, box(0.07, 0.016, 0.02), hair.darkened(0.1), Vector3(0.072 * s, 0.078, -0.176), Vector3.ONE, Vector3(0, 0, -0.12 * s))
-	var nose := MeshInstance3D.new(); nose.mesh = sphere(0.03, 8, 5); nose.material_override = mat(skin_d, 0.8); nose.position = Vector3(0, -0.015, -0.19); nose.scale = Vector3(0.8, 1.1, 1.0); p._head.add_child(nose)
+		p._eyes.append(ey); p._detail.append(ey)
+		var brow := mk(p._head, box(0.07, 0.016, 0.02), hair.darkened(0.1), Vector3(0.072 * s, 0.078, -0.176), Vector3.ONE, Vector3(0, 0, -0.12 * s)); p._detail.append(brow)
+	var nose := MeshInstance3D.new(); nose.mesh = sphere(0.03, 8, 5); nose.material_override = mat(skin_d, 0.8); nose.position = Vector3(0, -0.015, -0.19); nose.scale = Vector3(0.8, 1.1, 1.0); p._head.add_child(nose); p._detail.append(nose)
 	p._mouth = mk(p._head, box(0.07, 0.014, 0.012), Color(0.45, 0.16, 0.14), Vector3(0, -0.085, -0.178))
 	for s in [-1, 1]:
-		mk(p._head, sphere(0.022, 6, 4), skin.lightened(0.05), Vector3(0.16 * s, -0.04, 0.0), Vector3(0.5, 1, 1))   # ears
+		p._detail.append(mk(p._head, sphere(0.022, 6, 4), skin.lightened(0.05), Vector3(0.16 * s, -0.04, 0.0), Vector3(0.5, 1, 1)))   # ears
 	# hair / covering
 	var style: String = o.get("hair_style", "short")
 	if style != "none":
@@ -127,8 +130,23 @@ static func make(o: Dictionary) -> Person:
 	if o.get("label", true) and p.display_name != "":
 		var l := Label3D.new(); l.text = p.display_name; l.font_size = 64; l.pixel_size = 0.0045; l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.no_depth_test = true
 		l.position = Vector3(0, 1.95 / maxf(sc, 0.1), 0); l.modulate = Color(1, 0.92, 0.7); l.outline_size = 14; l.outline_modulate = Color(0.1, 0.06, 0.03, 0.9); l.fixed_size = false
-		p.add_child(l); l.set_meta("nm", true)
+		p.add_child(l); l.set_meta("nm", true); p.name_lbl = l
+	_trim_shadows(p, p)
 	return p
+
+## Tiny parts never need to cast shadows; skipping them roughly halves the shadow-pass draw calls of a crowd.
+static func _trim_shadows(n: Node, root: Node3D) -> void:
+	for c in n.get_children():
+		if c is MeshInstance3D and c.mesh != null:
+			var sz: Vector3 = c.mesh.get_aabb().size * c.scale
+			if sz.length() < 0.32: c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_trim_shadows(c, root)
+
+func set_detail(v: bool) -> void:
+	if v == _detail_on: return
+	_detail_on = v
+	for n in _detail:
+		if is_instance_valid(n): n.visible = v
 
 func face(d: Vector3) -> void:
 	d.y = 0

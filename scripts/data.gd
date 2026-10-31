@@ -23,5 +23,45 @@ func _load_json(p: String) -> Dictionary:
 func reset_progress() -> void:
 	scrolls.clear()
 
+# ------------------------------------------------------------------ save file (user://, JSON, written atomically)
+const SAVE_PATH := "user://walk_with_him_save.json"
+const SAVE_TMP := "user://walk_with_him_save.tmp"
+const SAVE_VERSION := 1
+signal never                      # never emitted: a coroutine whose owner is gone parks here instead of resuming into a freed object
+
+func read_save() -> Dictionary:
+	if not FileAccess.file_exists(SAVE_PATH): return {}
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null: return {}
+	var d = JSON.parse_string(f.get_as_text())
+	if typeof(d) != TYPE_DICTIONARY or int(d.get("v", 0)) != SAVE_VERSION or not d.has("stage") or not d.has("px") or not d.has("pz"): return {}
+	return d
+
+func has_save() -> bool:
+	return not read_save().is_empty()
+
+func write_save(d: Dictionary) -> bool:
+	d["v"] = SAVE_VERSION
+	var f := FileAccess.open(SAVE_TMP, FileAccess.WRITE)
+	if f == null: return false
+	f.store_string(JSON.stringify(d)); f.close()
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE_TMP), ProjectSettings.globalize_path(SAVE_PATH)) == OK
+
+func delete_save() -> void:
+	if FileAccess.file_exists(SAVE_PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+# ------------------------------------------------------------------ coroutine helpers that are safe when the owner is freed (scene reload, return to title)
+func alive(o: Variant) -> bool:
+	return o != null and is_instance_valid(o) and (not (o is Node) or (o.is_inside_tree() and not o.is_queued_for_deletion()))
+
+func sleep(owner: Variant, secs: float) -> void:
+	await get_tree().create_timer(secs, false).timeout
+	if not alive(owner): await never
+
+func frame(owner: Variant) -> void:
+	await get_tree().process_frame
+	while get_tree().paused and alive(owner): await get_tree().process_frame
+	if not alive(owner): await never
+
 func names() -> Array:
 	return GIRL_NAMES if player_girl else BOY_NAMES

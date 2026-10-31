@@ -101,7 +101,7 @@ func ground_to_screen(p: Vector3) -> Vector2:
 func clear_area() -> void:
 	if root: root.queue_free()
 	if player != null and is_instance_valid(player): player.queue_free()
-	player = null; jesus = null; follow_jesus = false
+	player = null; jesus = null; follow_jesus = false; follow_node = null
 	circles.clear(); rects.clear(); triggers.clear(); npcs.clear(); guests.clear(); sheep_list.clear(); markers.clear(); scrolls.clear(); pots.clear(); trees.clear()
 	wine_light = null; sparkles.clear(); beam_nodes.clear(); move_target = null
 	for c in fx_root.get_children(): c.queue_free()
@@ -328,9 +328,13 @@ func build_cana() -> void:
 	PR.ribbon(root, [Vector3(-16, 0, 8.5), Vector3(-12, 0, 7.5)], 3.0, "path", Color.WHITE, 0.04)
 	# walls (far sides only, so the camera never looks through them)
 	PR.tbox(root, Vector3(25.0, 1.3, 0.5), Vector3(0, 0.65, -10.3), "plaster", Color(0.96, 0.9, 0.8), 0.35); add_rect(Vector3(0, 0, -10.3), 25.0, 0.5, 0.1)
-	PR.tbox(root, Vector3(0.5, 1.3, 14.0), Vector3(-12.3, 0.65, -3.0), "plaster", Color(0.96, 0.9, 0.8), 0.35); add_rect(Vector3(-12.3, 0, -3.0), 0.5, 14.0, 0.1)
-	for z in [4.6, 9.8]: PR.tbox(root, Vector3(0.9, 2.1, 0.9), Vector3(-12.3, 1.05, z), "plaster", Color(0.92, 0.86, 0.75), 0.35)
-	add_circle(Vector3(-12.3, 0, 4.6), 0.6)
+	# west wall with a gate: wall - post - gap - post - wall, all one piece of masonry (no free-standing boxes)
+	PR.tbox(root, Vector3(0.5, 1.3, 14.6), Vector3(-12.3, 0.65, -3.0), "plaster", Color(0.96, 0.9, 0.8), 0.35); add_rect(Vector3(-12.3, 0, -3.0), 0.5, 14.6, 0.1)
+	PR.tbox(root, Vector3(0.5, 1.3, 0.8), Vector3(-12.3, 0.65, 10.0), "plaster", Color(0.96, 0.9, 0.8), 0.35); add_rect(Vector3(-12.3, 0, 10.0), 0.5, 0.8, 0.1)
+	for z in [4.7, 9.5]:
+		PR.tbox(root, Vector3(0.7, 1.9, 0.7), Vector3(-12.3, 0.95, z), "plaster", Color(0.94, 0.88, 0.78), 0.35)
+		PR.tbox(root, Vector3(0.9, 0.16, 0.9), Vector3(-12.3, 1.98, z), "plaster", Color(0.86, 0.78, 0.66), 0.35)
+		add_circle(Vector3(-12.3, 0, z), 0.5)
 	# wedding house
 	var hs := add_house(Vector3(-7.4, 0, -6.6), 8.0, 5.0, 3.2, 0, Color(1.0, 0.95, 0.86), false)
 	# stone shelf with the six waterpots
@@ -342,7 +346,7 @@ func build_cana() -> void:
 		sp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE; sp.emission_sphere_radius = 0.3; sp.direction = Vector3(0, 1, 0); sp.spread = 25.0; sp.initial_velocity_min = 0.8; sp.initial_velocity_max = 1.6; sp.gravity = Vector3(0, -0.2, 0); sp.scale_amount_min = 0.04; sp.scale_amount_max = 0.1
 		root.add_child(sp); sparkles.append(sp)
 		var beam := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.3; cm.bottom_radius = 0.42; cm.height = 5.0; cm.radial_segments = 10; beam.mesh = cm
-		var bm := StandardMaterial3D.new(); bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD; bm.albedo_color = Color(1.0, 0.7, 0.35, 0.0); bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var bm := StandardMaterial3D.new(); bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; bm.blend_mode = BaseMaterial3D.BLEND_MODE_MIX; bm.albedo_color = Color(1.0, 0.58, 0.14, 0.0); bm.cull_mode = BaseMaterial3D.CULL_DISABLED
 		beam.material_override = bm; beam.position = Vector3(x, 3.4, -8.2); beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; root.add_child(beam); beam_nodes.append(bm)
 		pots.append({"node": pd.node, "liquid": pd.liquid, "mat": pd.mat, "level": 0, "pos": Vector3(x, 0.5, -8.2)})
 		add_circle(Vector3(x, 0, -8.2), 0.5)
@@ -410,7 +414,7 @@ func pot_set_level(i: int, lv: int, total := 4) -> void:
 	create_tween().tween_property(p.liquid, "position:y", y, 0.25)
 func pots_to_wine(dur_each := 1.0) -> void:
 	for bm in beam_nodes:
-		create_tween().tween_property(bm, "albedo_color:a", 0.22, 2.5)
+		create_tween().tween_property(bm, "albedo_color:a", 0.34, 2.5)
 	for sp in sparkles: sp.emitting = true
 	create_tween().tween_property(wine_light, "light_energy", 3.0, 3.0)
 	var wine := Color(0.5, 0.05, 0.14)
@@ -418,9 +422,21 @@ func pots_to_wine(dur_each := 1.0) -> void:
 		var m: StandardMaterial3D = pots[i].mat
 		var tw := create_tween().set_parallel(true)
 		tw.tween_property(m, "albedo_color", wine, dur_each * 1.4); tw.tween_property(m, "emission", Color(0.8, 0.12, 0.1), dur_each * 1.4); tw.tween_property(m, "emission_energy_multiplier", 0.9, dur_each * 1.4)
-		await get_tree().create_timer(dur_each * 0.55).timeout
+		await Game.sleep(self, dur_each * 0.55)
+func pots_fill_now() -> void:
+	for p in pots:
+		p.level = 4; p.liquid.position.y = 0.84
+func pots_wine_now() -> void:
+	pots_fill_now()
+	for p in pots:
+		var m: StandardMaterial3D = p.mat
+		m.albedo_color = Color(0.5, 0.05, 0.14); m.emission = Color(0.8, 0.12, 0.1); m.emission_energy_multiplier = 0.9
+	for bm in beam_nodes:
+		var bc: Color = bm.albedo_color; bc.a = 0.10; bm.albedo_color = bc
+	for sp in sparkles: sp.emitting = false
+	if wine_light != null: wine_light.light_energy = 1.2
 func miracle_fade_beams() -> void:
-	for bm in beam_nodes: create_tween().tween_property(bm, "albedo_color:a", 0.07, 3.0)
+	for bm in beam_nodes: create_tween().tween_property(bm, "albedo_color:a", 0.10, 3.0)
 	for sp in sparkles: sp.emitting = false
 	create_tween().tween_property(wine_light, "light_energy", 1.2, 3.0)
 
@@ -509,6 +525,36 @@ func _process(dt: float) -> void:
 	focus = focus.lerp(focus_goal, k); csize = lerpf(csize, csize_goal, k); pitch = lerpf(pitch, pitch_goal, k)
 	yaw += yaw_spin * dt
 	_apply_cam()
+	_tidy(dt)
+
+var _tidy_cd := 0.0
+## Every 0.2s: simplify faces of distant people (fewer draw calls) and keep name labels from overlapping (the player's yields first).
+func _tidy(dt: float) -> void:
+	_tidy_cd -= dt
+	if _tidy_cd > 0.0: return
+	_tidy_cd = 0.2
+	var list: Array = []
+	if is_instance_valid(player): list.append(player)
+	for k in npcs:
+		var n = npcs[k]
+		if is_instance_valid(n) and not list.has(n): list.append(n)
+	for g in guests:
+		if is_instance_valid(g) and g is Person and not list.has(g): list.append(g)
+	var near := csize < 8.5
+	var labelled: Array = []
+	for p in list:
+		var d := Vector2(p.position.x - focus.x, p.position.z - focus.z).length()
+		p.set_detail(near or d < 6.5 or p == player or p == jesus)
+		if p.name_lbl != null and is_instance_valid(p.name_lbl):
+			p.name_lbl.visible = true; labelled.append(p)
+	for i in labelled.size():
+		for j in range(i + 1, labelled.size()):
+			var a: Person = labelled[i]; var b: Person = labelled[j]
+			if not (a.name_lbl.visible and b.name_lbl.visible): continue
+			var pa := ground_to_screen(a.position + Vector3(0, 2.0, 0)); var pb := ground_to_screen(b.position + Vector3(0, 2.0, 0))
+			if absf(pa.x - pb.x) < 190.0 and absf(pa.y - pb.y) < 64.0:
+				var loser: Person = a if a == player else (b if b == player else (a if Vector2(a.position.x - focus.x, a.position.z - focus.z).length() > Vector2(b.position.x - focus.x, b.position.z - focus.z).length() else b))
+				loser.name_lbl.visible = false
 
 func _step_player(dt: float) -> void:
 	var dir := Vector3.ZERO

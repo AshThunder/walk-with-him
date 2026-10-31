@@ -15,6 +15,13 @@ var stick_origin := Vector2.ZERO
 var stick_pos := Vector2.ZERO
 var _t := {}
 
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS     # buttons must keep working while the tree is paused (pause menu, map)
+
+func _notification(what: int) -> void:
+	# Android: a system gesture (edge swipe, notification shade) or a pause can swallow the touch-up. Never leave a stuck finger behind.
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT: reset()
+
 func register(b: Node) -> void:
 	if not buttons.has(b): buttons.append(b)
 func unregister(b: Node) -> void:
@@ -23,7 +30,8 @@ func unregister(b: Node) -> void:
 func _input(e: InputEvent) -> void:
 	if not enabled: return
 	if e is InputEventScreenTouch:
-		if e.pressed: _down(e.index, e.position)
+		if e.canceled: _cancel(e.index)
+		elif e.pressed: _down(e.index, e.position)
 		else: _up(e.index, e.position)
 	elif e is InputEventScreenDrag:
 		var d = _t.get(e.index)
@@ -62,5 +70,14 @@ func _up(idx: int, pos: Vector2) -> void:
 		return
 	world_tap.emit(pos)
 
+func _cancel(idx: int) -> void:
+	var d = _t.get(idx); _t.erase(idx)
+	if d == null: return
+	if d.target and is_instance_valid(d.target): d.target.set_down(false)
+	if d.dragging: stick = Vector2.ZERO; stick_active = false
+
 func reset() -> void:
+	for k in _t:
+		var d = _t[k]
+		if d.target and is_instance_valid(d.target): d.target.set_down(false)
 	_t.clear(); stick = Vector2.ZERO; stick_active = false
