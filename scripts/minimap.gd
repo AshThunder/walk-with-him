@@ -36,6 +36,9 @@ func _draw() -> void:
 	if is_instance_valid(w.jesus): 
 		var jp := _xf(w, Vector2(w.jesus.position.x, w.jesus.position.z), c, k)
 		draw_circle(jp, 7.0, Color(1, 1, 1, 0.95)); draw_arc(jp, 7.0, 0, TAU, 16, Color(0.4, 0.25, 0.1), 2.0)
+	for md in w.minidots:                                  # lambs and doves
+		if is_instance_valid(md.n):
+			draw_circle(_xf(w, Vector2(md.n.position.x, md.n.position.z), c, k), 4.5, md.col); draw_arc(_xf(w, Vector2(md.n.position.x, md.n.position.z), c, k), 4.5, 0, TAU, 10, Color(0.3, 0.2, 0.1), 1.5)
 	# scrolls
 	for key in w.scrolls:
 		var sc = w.scrolls[key]

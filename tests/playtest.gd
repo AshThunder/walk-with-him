@@ -22,6 +22,21 @@ func run() -> void:
 	# the Android Back gesture on the title must not close the app
 	m.notification(NOTIFICATION_WM_GO_BACK_REQUEST); await d.frames(3)
 	d.check(is_inside_tree() and not tree.root.is_queued_for_deletion() and m.phase == "title", "Back gesture on the title does not quit")
+	print("== chapter select")
+	d.check(d.find_btn("chapters") != null, "title has a Chapters button")
+	await d.tap_btn("chapters")
+	d.check(m.ui.chap_open and d.find_btn("chap_cana_mary") != null and d.find_btn("chap_n4_temple") != null, "chapter list shows the Nativity chapters and Cana")
+	d.check(d.find_btn("chap_n1_flock") != null and d.find_btn("chap_naz_start") != null, "chapter list lists chapter 1 and Nazareth (6 and 7 are not offered)")
+	m.notification(NOTIFICATION_WM_GO_BACK_REQUEST); await d.frames(3)
+	d.check(not m.ui.chap_open and m.phase == "title", "Back closes the chapter list instead of quitting")
+	await d.tap_btn("chapters"); await d.tap_btn("chap_n4_temple")
+	await d.advance_until(func(): return m.phase == "n4" and m.nat.doves_on, 90.0)
+	d.check(m.phase == "n4" and m.nat.doves_on, "chapter select jumps straight to the Temple doves")
+	d.check(d.find_btn("minimap") != null and m.ui.map_grp != null, "minimap button on the HUD in the Temple")
+	await d.tap_btn("map"); d.check(m.ui.map_open, "map opens in the Temple"); await d.tap_btn("mapclose")
+	Game.delete_save()
+	await d.restart(); m = d.main
+	await d.wait_btn("begin")
 	await d.tap_btn("begin")
 	await d.wait_for(func(): return m.phase == "name")
 	d.check(m.phase == "name", "name picker opens")
@@ -29,10 +44,80 @@ func run() -> void:
 	d.check(await d.tap_btn("chip1"), "pick a name chip")
 	d.check(Game.player_name != "", "player has a name: " + Game.player_name)
 	await d.tap_btn("go")
+	print("== chapter 1: gather the flock")
+	var nat = m.nat
+	await d.wait_for(func(): return m.phase == "n1", 20.0)
+	await d.advance_until(func(): return nat.herd and d.world().control, 60.0)
+	d.check(m.phase == "n1" and nat.herd and d.world().control, "ch1: control given, lambs can be herded")
+	d.check(Game.age_stage == "child" and d.player().scale.x < 0.7, "player is a child in the Nativity (scale %.2f)" % d.player().scale.x)
+	d.check(m.ui.pour_panel.visible, "ch1: fold counter is shown")
+	await _herd(2, 600.0)
+	d.check(nat.folded >= 2, "ch1: two lambs herded into the fold by touch (%d)" % nat.folded)
+	print("== crash-safety mid-Nativity: kill the app with part of the flock folded, relaunch, Continue")
+	var had: int = nat.folded
+	var sd1 := Game.read_save()
+	await d.relaunch(); m = d.main; nat = m.nat
+	d.check(await d.wait_btn("continue") != null, "relaunch: title offers Continue mid-Nativity")
+	await d.tap_btn("continue")
+	await d.wait_for(func(): return m.phase == "n1" and nat.herd and d.world().control, 30.0)
+	d.check(m.phase == "n1" and d.world().control, "Continue resumes chapter 1 with control")
+	d.check(nat.folded >= had and nat.folded < 5, "Continue keeps the folded lambs (%d, was %d)" % [nat.folded, had])
+	d.check(Game.age_stage == "child", "Continue keeps the child stage")
+	await _herd(5, 900.0)
+	d.check(nat.folded == 5 or m.phase != "n1", "ch1: whole flock folded")
+	print("== chapter 2: the angels' announcement")
+	await d.advance_until(func(): return nat.sky_on, 80.0)
+	d.check(nat.sky_on and m.phase == "n2", "ch2: sky-look is waiting for a drag")
+	var pitch0: float = d.world().pitch
+	await touch_drag_up()
+	await d.wait_for(func(): return d.world().pitch > 4.0 or not nat.sky_on, 6.0)
+	d.check(d.world().pitch > pitch0 + 10.0 or not nat.sky_on, "ch2: dragging up lifts the view to the sky (pitch %.1f)" % d.world().pitch)
+	await d.advance_until(func(): return d.find_btn("choice1") != null, 90.0)
+	d.check(d.find_btn("choice1") != null, "ch2: the host of angels, a choice of response (no game)")
+	await d.tap_btn("choice1")
+	await d.advance_until(func(): return m.phase == "n3" and d.world().control, 90.0)
+	print("== chapter 3: match the sign")
+	d.check(m.phase == "n3" and d.world().control, "ch3: Bethlehem, control given")
+	d.check(m.ui.clue_panel.visible if "clue_panel" in m.ui else true, "ch3: clue panel is shown")
+	for i in 3:
+		var sx: float = nat.STABLES[i].x
+		await d.walk_via([Vector3(sx, 0, -1.6), Vector3(sx, 0, -4.4)], 2.3)
+		d.check(await d.wait_for(func(): return i in nat.visited or m.phase == "n3done" or m.phase == "n4", 25.0), "ch3: looked into stable %d" % (i + 1))
+		await d.advance_until(func(): return d.world().control or m.phase != "n3", 20.0)
+	d.check(m.phase == "n3done" or m.phase == "n4" or m.phase == "n3", "ch3: reached the sign stable")
+	await d.advance_until(func(): return m.phase == "n4", 90.0)
+	d.check(m.phase == "n4", "ch3: the sign is matched (swaddling clothes + manger) and the Temple follows")
+	print("== chapter 4: catch the doves")
+	await d.advance_until(func(): return nat.doves_on, 90.0)
+	d.check(nat.doves_on and nat.cage_on, "ch4: cage drag is live")
+	await d.hold_follow(_dove_target, func(): return not nat.doves_on, 100.0)
+	d.check(nat._caught >= 2, "ch4: both doves caught by dragging the cage (%d)" % nat._caught)
+	await d.advance_until(func(): return m.phase == "n5", 90.0)
+	print("== chapter 5: trace the star")
+	await d.advance_until(func(): return nat.trace != null and nat.trace.active, 90.0)
+	d.check(nat.trace != null, "ch5: star trace overlay is up")
+	var tr = nat.trace
+	var pts: Array = tr.pts
+	var gp: Vector2 = tr.global_position
+	d.touch(true, gp + pts[0]); await d.frames(2)
+	for pt in pts: d.drag(gp + pt); await d.frames(2)
+	d.touch(false, gp + pts[pts.size() - 1]); await d.frames(3)
+	d.check(await d.wait_for(func(): return tr.done or nat.trace == null, 10.0), "ch5: tracing the dotted road with one finger completes the star")
+	await d.advance_until(func(): return m.phase == "jump", 120.0)
+	print("== the age jump")
+	d.check(m.phase == "jump", "the jump scene is reached")
+	for i in 2:
+		await d.wait_for(func(): return nat.jump_wait, 40.0)
+		d.check(nat.jump_wait, "jump %d: glowing mark waits for a tap" % (i + 1))
+		await d.tap(d.world().ground_to_screen(nat.jump_pos))
+		await d.advance_until(func(): return Game.age_stage == ["teen", "adult"][i], 30.0)
+		d.check(Game.age_stage == ["teen", "adult"][i], "jump %d: age stage is now %s" % [i + 1, Game.age_stage])
+		await d.advance_until(func(): return (nat.jump_wait if i == 0 else m.phase == "intro"), 40.0)
 	print("== nazareth")
-	await d.wait_for(func(): return m.phase == "intro")
+	await d.wait_for(func(): return m.phase == "intro" or m.phase == "nazareth", 30.0)
 	await d.advance_until(func(): return m.phase == "nazareth" and d.world().control)
 	d.check(m.phase == "nazareth" and d.world().control, "player is given control in Nazareth")
+	d.check(Game.age_stage == "adult" and d.world().area == "nazareth", "player is grown up in Nazareth")
 	d.check(await d.walk_to(Vector3(-0.4, 0, 3.0), 3.6), "walk toward Naomi by tapping")
 	await d.tap(d.world().ground_to_screen(d.world().npcs.naomi.position))
 	await d.wait_for(func(): return m.ui.in_line, 10.0)
@@ -144,3 +229,37 @@ func run() -> void:
 	await d.tap_btn("again")
 	await tree.create_timer(3.0).timeout
 	tree.quit(2)
+
+## Herd lambs with taps only: get behind the nearest free lamb (away from the gate), then walk it toward the gate.
+func _herd(want: int, limit_s: float) -> void:
+	var nat = d.main.nat; var w = d.world(); var t := 0.0
+	var gate := Vector3(7.0, 0, -4.4)
+	while nat.folded < want and d.main.phase == "n1" and t < limit_s:
+		var best = null; var bd := 1e9
+		for L in nat.lambs:
+			if L.state == "free":
+				var dd: float = w.player.position.distance_to(L.n.position)
+				if dd < bd: bd = dd; best = L
+		if best == null: await d.frames(10); t += 1.0; continue
+		var lp: Vector3 = best.n.position
+		var behind := lp + (lp - gate).normalized() * 4.4
+		behind.x = clampf(behind.x, w.bounds.position.x + 1.0, w.bounds.end.x - 1.0); behind.z = clampf(behind.z, w.bounds.position.y + 1.0, w.bounds.end.y - 1.0)
+		await d.walk_to(behind, 1.1, 14.0); t += 4.0
+		for k in 5:
+			if best.state != "free": break
+			var step: Vector3 = (gate - w.player.position); step.y = 0
+			await d.tap(w.ground_to_screen(w.player.position + step.normalized() * minf(step.length(), 4.0))); await d.frames(6); t += 1.0
+		if is_instance_valid(best.n) and best.state == "free" and w.player.position.distance_to(best.n.position) > 6.0: t += 0.0
+
+func touch_drag_up() -> void:
+	var s := Vector2(540, 1500)
+	d.touch(true, s); await d.frames(2)
+	for i in 14:
+		d.drag(s - Vector2(0, 60.0 * (i + 1))); await d.frames(2)
+	d.touch(false, s - Vector2(0, 840)); await d.frames(2)
+
+func _dove_target() -> Vector2:
+	var nat = d.main.nat; var tgt := Vector3(1, 0, 0)
+	for D in nat.doves:
+		if not D.caught: tgt = D.n.position; tgt.y = 0; break
+	return d.world().ground_to_screen(tgt)

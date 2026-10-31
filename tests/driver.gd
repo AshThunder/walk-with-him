@@ -21,6 +21,15 @@ func relaunch() -> void:
 	add_child(main)
 	await frames(2)
 
+## A cold start that does NOT autosave first (used after chapter-select tests).
+func restart() -> void:
+	main.queue_free(); await frames(3)
+	Touch.reset(); get_tree().paused = false
+	Game.reset_progress(); Game.player_name = "Shepherd"; Game.player_girl = false
+	main = load("res://scenes/main.tscn").instantiate()
+	add_child(main)
+	await frames(2)
+
 func check(cond: bool, msg: String) -> void:
 	checks += 1
 	if cond: print("  ok   ", msg)
@@ -137,3 +146,14 @@ func shot(n: String) -> void:
 func stats(tag: String) -> void:
 	var P := Performance
 	print("STATS %s objs=%d nodes=%d draws=%d prims=%d texMB=%.1f vidMB=%.1f bufMB=%.1f staticMB=%.1f" % [tag, P.get_monitor(P.OBJECT_COUNT), P.get_monitor(P.OBJECT_NODE_COUNT), P.get_monitor(P.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), P.get_monitor(P.RENDER_TOTAL_PRIMITIVES_IN_FRAME), P.get_monitor(P.RENDER_TEXTURE_MEM_USED)/1048576.0, P.get_monitor(P.RENDER_VIDEO_MEM_USED)/1048576.0, P.get_monitor(P.RENDER_BUFFER_MEM_USED)/1048576.0, P.get_monitor(P.MEMORY_STATIC)/1048576.0])
+
+
+## Touch a point and keep the finger down, following `target_fn` (returns a screen pos) until `done` or timeout.
+func hold_follow(target_fn: Callable, done: Callable, timeout_s := 60.0, idx := 0) -> void:
+	var p: Vector2 = target_fn.call()
+	touch(true, p, idx); await frames(1)
+	var t := 0.0
+	while t < timeout_s and not done.call():
+		p = target_fn.call(); drag(p, idx)
+		await frames(2); t += get_process_delta_time() * 2.0
+	touch(false, p, idx); await frames(2)

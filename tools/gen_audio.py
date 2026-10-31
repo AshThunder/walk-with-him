@@ -127,6 +127,36 @@ def music():
         for s, dg, oc, ds in ph: mel.append((bar * 8 + s, dg, oc, ds))
     track("feast", 128, 8, mel, "DkTDkTDT", vol=0.75)
     pad("wonder")
+def extra():
+    """v0.3.0 additions (Nativity): whistle sfx and the night / vigil / temple music. Own RNG so the older files never change."""
+    global rng
+    rng = np.random.default_rng(11)
+    # a shepherd's whistle: two rising-falling pure notes with a breathy edge
+    x = np.zeros(int(SR * 1.1))
+    for i, (f0, f1, d0) in enumerate([(1500, 2100, 0.0), (2100, 1750, 0.42)]):
+        t = t_(0.4); fq = np.linspace(f0, f1, len(t)); ph = 2 * np.pi * np.cumsum(fq) / SR
+        s = (np.sin(ph) * 0.8 + 0.12 * hp(rng.uniform(-1, 1, len(t)), 2500)) * env(len(t), 0.04, 0.12) * (1 + 0.06 * np.sin(2 * np.pi * 28 * t)); p = int(d0 * SR); x[p:p + len(s)] += s[:len(x) - p]
+    save(ROOT + "/audio/sfx/whistle.ogg", norm(x, 0.5))
+    # night: slow open fifths on D with a few sparse plucks, no drums, loopable
+    dur = 24.0; t = t_(dur); mix = np.zeros(len(t))
+    for fq, a in [(73.4, .5), (110.0, .35), (146.8, .22), (220.0, .1)]:
+        mix += np.sin(2 * np.pi * fq * t + 0.4 * np.sin(2 * np.pi * 0.05 * t)) * a * (0.8 + 0.2 * np.sin(2 * np.pi * t / dur * 2))
+    for st, deg, oc in [(1.0, 4, 1), (4.5, 2, 1), (7.0, 3, 1), (11.0, 0, 1), (14.5, 4, 1), (17.0, 2, 1), (20.0, 1, 1)]:
+        s = pluck(note(deg, oc), 3.0, 0.9975, 0.35) * 0.4; p = int(st * SR); mix[p:p + len(s)] += s[:len(mix) - p]
+    save(ROOT + "/audio/music/night.ogg", norm(mix, 0.55))
+    # vigil: a very quiet suspended pad (Simeon and Anna waiting)
+    t = t_(20.0); x = np.zeros(len(t))
+    for k, fq in enumerate([98.0, 146.8, 196.0, 220.0, 294.0, 392.0]):
+        x += np.sin(2 * np.pi * fq * t + 0.6 * np.sin(2 * np.pi * (0.04 + 0.02 * k) * t)) * (0.45 / (1 + 0.4 * k)) * (0.7 + 0.3 * np.sin(2 * np.pi * (k + 1) / 20.0 * t))
+    save(ROOT + "/audio/music/vigil.ogg", norm(x, 0.45))
+    # temple: slow solemn plucks over a drone, a gentle frame-drum heartbeat
+    mel = []
+    for bar, ph in enumerate([[(0,0,1,4),(4,2,1,2),(6,3,1,2)], [(0,4,1,3),(4,3,1,2),(6,2,1,2)], [(0,2,1,2),(2,3,1,2),(4,4,1,4)], [(0,3,1,2),(2,2,1,2),(4,0,1,4)]]):
+        for s, dg, oc, ds in ph: mel.append((bar * 8 + s, dg, oc, ds))
+    track("temple", 60, 4, mel, "D---T---", vol=0.6)
 if __name__ == "__main__":
+    import sys
     for d in ["sfx", "music"]: os.makedirs(ROOT + "/audio/" + d, exist_ok=True)
-    sfx(); music(); print("audio done")
+    if "extra" in sys.argv: extra()
+    else: sfx(); music(); extra()
+    print("audio done")

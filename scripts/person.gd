@@ -4,7 +4,7 @@ extends Node3D
 ## Characters are original geometry, not downloaded models, so faces, robes and head-coverings can follow the story.
 var moving := 0.0                 # 0..1, set by the owner every frame
 var talking := false
-var pose := "idle"                # idle | cheer | carry | pray | amaze
+var pose := "idle"                # idle | cheer | carry | pray | amaze | kneel | praise | awe
 var target_yaw := 0.0
 var display_name := ""
 var _ph := 0.0
@@ -124,6 +124,10 @@ static func make(o: Dictionary) -> Person:
 		mk(p._head, box(0.4, 0.5, 0.1), cc, Vector3(0, -0.15, 0.15), Vector3.ONE, Vector3(0.08, 0, 0))
 		for s in [-1, 1]: mk(p._head, box(0.06, 0.3, 0.14), cc, Vector3(0.19 * s, -0.04, 0.02), Vector3.ONE, Vector3(0, 0, 0.05 * s))
 		mk(p._head, box(0.38, 0.03, 0.05), sash, Vector3(0, 0.1, -0.15), Vector3.ONE, Vector3(-0.2, 0, 0))
+	if o.get("satchel", false):       # the grown traveller: a leather strap across the chest and a bag at the hip
+		var lc := Color(0.4, 0.26, 0.13)
+		mk(p._body, box(0.07, 0.62, 0.05), lc, Vector3(0.0, 0.98, -0.2), Vector3.ONE, Vector3(0, 0, 0.7))
+		mk(p._body, box(0.2, 0.2, 0.1), lc, Vector3(0.27, 0.74, -0.04), Vector3.ONE, Vector3(0, 0, -0.1))
 	if o.get("staff", false):
 		var st := mk(p.hand_r, cyl(0.025, 0.03, 1.5, 6), Color(0.45, 0.3, 0.16), Vector3(0, 0.2, 0), Vector3.ONE, Vector3(0, 0, 0))
 		mk(st, sphere(0.05, 6, 4), Color(0.45, 0.3, 0.16), Vector3(0, 0.75, 0))
@@ -180,6 +184,12 @@ func _process(dt: float) -> void:
 			al = -0.9; ar = -0.9; al_z = 0.35; ar_z = -0.35
 		"amaze":
 			al = -0.5 + sin(_t * 2.0) * 0.05; ar = -0.5; al_z = -0.5; ar_z = 0.5
+		"kneel":
+			al = -0.9; ar = -0.9; al_z = 0.35; ar_z = -0.35
+		"praise":
+			al = -2.9 + sin(_t * 2.5) * 0.12; ar = -2.9 + sin(_t * 2.5 + 1.0) * 0.12; al_z = -0.35; ar_z = 0.35
+		"awe":
+			al = -0.35; ar = -0.35; al_z = -0.55; ar_z = 0.55
 		_:
 			if talking:
 				_gest_cd -= dt
@@ -189,7 +199,12 @@ func _process(dt: float) -> void:
 	_arm_l.rotation = Vector3(lerp(_arm_l.rotation.x, al, 0.25), 0, lerp(_arm_l.rotation.z, al_z, 0.25))
 	_arm_r.rotation = Vector3(lerp(_arm_r.rotation.x, ar, 0.25), 0, lerp(_arm_r.rotation.z, ar_z, 0.25))
 	# head + mouth
-	_head.rotation.x = lerp(_head.rotation.x, (0.06 * sin(_t * 12.0) if talking else 0.0) + (-0.15 if pose == "amaze" else 0.0), 0.2)
+	var hx := (0.06 * sin(_t * 12.0) if talking else 0.0) + (-0.15 if pose == "amaze" else 0.0)
+	if pose == "awe" or pose == "praise": hx = 0.55
+	elif pose == "kneel": hx = 0.3         # counter the forward bow so the face stays lowered but visible
+	_head.rotation.x = lerp(_head.rotation.x, hx, 0.2)
+	_body.scale.y = lerp(_body.scale.y, 0.8 if pose == "kneel" else 1.0, 0.15)
+	_body.rotation.x = lerp(_body.rotation.x, -0.32 if pose == "kneel" else 0.0, 0.15)
 	var open := 1.0
 	if talking: open = 1.0 + (absf(sin(_t * 13.0)) * 0.6 + absf(sin(_t * 7.3)) * 0.5) * 2.2
 	elif pose == "amaze": open = 3.0

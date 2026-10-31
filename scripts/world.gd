@@ -30,6 +30,7 @@ var trees: Array = []
 var wine_light: OmniLight3D
 var beam_nodes: Array = []
 var sparkles: Array = []
+var minidots: Array = []     # [{n: Node3D, col: Color}] extra moving dots for the minimap (lambs, doves)
 var fx_root: Node3D
 const SPEED := 3.7
 # camera rig
@@ -103,7 +104,7 @@ func clear_area() -> void:
 	if player != null and is_instance_valid(player): player.queue_free()
 	player = null; jesus = null; follow_jesus = false; follow_node = null
 	circles.clear(); rects.clear(); triggers.clear(); npcs.clear(); guests.clear(); sheep_list.clear(); markers.clear(); scrolls.clear(); pots.clear(); trees.clear()
-	wine_light = null; sparkles.clear(); beam_nodes.clear(); move_target = null
+	wine_light = null; sparkles.clear(); beam_nodes.clear(); minidots.clear(); move_target = null; Touch.set_capture(false)
 	for c in fx_root.get_children(): c.queue_free()
 	root = Node3D.new(); add_child(root)
 
@@ -264,13 +265,27 @@ func _jesus_look() -> Dictionary:
 	return {"robe": Color(0.95, 0.91, 0.82), "sash": Color(0.45, 0.28, 0.15), "mantle": Color(0.5, 0.18, 0.18), "skin": Color(0.72, 0.52, 0.37), "hair": Color(0.25, 0.15, 0.09), "hair_style": "long", "beard": true, "scale": 1.05, "name": "Jesus", "eyes": Color(0.22, 0.13, 0.06)}
 
 func _make_player(pos: Vector3, yaw_deg: float) -> Person:
+	# the player grows up: child (staff) -> teen (longer tunic) -> adult (cloak and satchel)
 	var o := {"scale": 0.76, "head_scale": 1.18, "staff": true, "name": Game.player_name, "skin": Color(0.74, 0.54, 0.38)}
+	match Game.age_stage:
+		"child": o.merge({"scale": 0.6, "head_scale": 1.3}, true)
+		"teen": o.merge({"scale": 0.9, "head_scale": 1.12, "staff": false}, true)
+		_: o.merge({"scale": 1.0, "head_scale": 1.0, "staff": false, "satchel": true}, true)
 	if Game.player_girl:
 		o.merge({"robe": Color(0.72, 0.38, 0.3), "sash": Color(0.9, 0.75, 0.35), "hair": Color(0.15, 0.09, 0.06), "hair_style": "braid", "cloth": null}, true)
 	else:
 		o.merge({"robe": Color(0.4, 0.5, 0.58), "sash": Color(0.6, 0.4, 0.2), "hair": Color(0.2, 0.12, 0.07), "hair_style": "short"}, true)
+	if Game.age_stage == "adult":
+		o.merge({"mantle": Color(0.55, 0.42, 0.3)}, true)
+	elif Game.age_stage == "teen":
+		o.merge({"cloth": Color(0.85, 0.8, 0.7)}, not Game.player_girl)
 	var p := P.make(o); p.position = pos; p.target_yaw = deg_to_rad(yaw_deg); p.rotation.y = p.target_yaw; add_child(p)
 	return p
+
+func build_fields() -> void: Areas.fields(self)
+func build_town(lit_house := false) -> void: Areas.town(self, lit_house)
+func build_temple() -> void: Areas.temple(self)
+func build_home() -> void: Areas.home(self)
 
 func rebuild_player() -> void:
 	var pos := player.position; var yw := player.target_yaw

@@ -1,7 +1,9 @@
 extends Node
-## Story flow for the Nazareth -> Cana slice (John 2:1-11).
+## Story flow: the Nativity (chapters 1-5, nativity.gd), the age jump, then Nazareth -> Cana (John 2:1-11).
 var world: World
 var ui: UI
+var nat: Nativity
+var _chapter_pick := ""
 var phase := "boot"
 var pot_mode := ""            # "" | "fill" | "draw"
 var pours := 0
@@ -18,15 +20,21 @@ var _closing := false
 
 ## Checkpoints. Each one knows its area, the HUD phase, the objective text and where the objective is.
 const STAGES := {
-	"naz_start": {"area": "nazareth", "phase": "nazareth", "text": "Look for Naomi near the well", "title": "Nazareth"},
-	"naz_scroll": {"area": "nazareth", "phase": "nazareth", "text": "Find Naomi's scroll by the olive tree", "title": "Nazareth"},
-	"naz_return": {"area": "nazareth", "phase": "nazareth", "text": "Take the scroll back to Naomi", "title": "Nazareth"},
-	"naz_jesus": {"area": "nazareth", "phase": "nazareth", "text": "Go and see Jesus at the carpenter's shop", "title": "Nazareth"},
-	"naz_walk": {"area": "nazareth", "phase": "nazareth", "text": "Walk the road east with Jesus", "title": "Nazareth"},
-	"road": {"area": "road", "phase": "road", "text": "Walk with Jesus to Cana", "title": "The Road to Cana"},
-	"cana_mary": {"area": "cana", "phase": "cana", "text": "Greet Mary, the mother of Jesus", "title": "Cana of Galilee"},
-	"cana_draw": {"area": "cana", "phase": "cana", "text": "Draw some out: tap a waterpot", "title": "Cana of Galilee"},
-	"cana_bear": {"area": "cana", "phase": "bear", "text": "Bear the cup to the governor of the feast", "title": "Cana of Galilee"},
+	"n1_flock": {"nat": true, "area": "fields", "phase": "n1", "text": "Gather the lambs into the fold", "title": "The Night Field", "ch": "Chapter 1"},
+	"n2_sky": {"nat": true, "area": "fields", "phase": "n2", "text": "", "title": "Glory in the Sky", "ch": "Chapter 2"},
+	"n3_town": {"nat": true, "area": "town", "phase": "n3", "text": "", "title": "Bethlehem", "ch": "Chapter 3"},
+	"n4_temple": {"nat": true, "area": "temple", "phase": "n4", "text": "", "title": "The Temple", "ch": "Chapter 4"},
+	"n5_star": {"nat": true, "area": "town", "phase": "n5", "text": "", "title": "The Star", "ch": "Chapter 5"},
+	"jump": {"nat": true, "area": "home", "phase": "jump", "text": "", "title": "Years Pass", "ch": "Chapter 5"},
+	"naz_start": {"ch": "Chapter 8", "area": "nazareth", "phase": "nazareth", "text": "Look for Naomi near the well", "title": "Nazareth"},
+	"naz_scroll": {"ch": "Chapter 8", "area": "nazareth", "phase": "nazareth", "text": "Find Naomi's scroll by the olive tree", "title": "Nazareth"},
+	"naz_return": {"ch": "Chapter 8", "area": "nazareth", "phase": "nazareth", "text": "Take the scroll back to Naomi", "title": "Nazareth"},
+	"naz_jesus": {"ch": "Chapter 8", "area": "nazareth", "phase": "nazareth", "text": "Go and see Jesus at the carpenter's shop", "title": "Nazareth"},
+	"naz_walk": {"ch": "Chapter 8", "area": "nazareth", "phase": "nazareth", "text": "Walk the road east with Jesus", "title": "Nazareth"},
+	"road": {"ch": "Chapter 9", "area": "road", "phase": "road", "text": "Walk with Jesus to Cana", "title": "The Road to Cana"},
+	"cana_mary": {"ch": "Chapter 10", "area": "cana", "phase": "cana", "text": "Greet Mary, the mother of Jesus", "title": "Cana of Galilee"},
+	"cana_draw": {"ch": "Chapter 10", "area": "cana", "phase": "cana", "text": "Draw some out: tap a waterpot", "title": "Cana of Galilee"},
+	"cana_bear": {"ch": "Chapter 10", "area": "cana", "phase": "bear", "text": "Bear the cup to the governor of the feast", "title": "Cana of Galilee"},
 }
 
 func _ready() -> void:
@@ -36,6 +44,8 @@ func _ready() -> void:
 	world = World.new(); add_child(world)
 	ui = UI.new(); add_child(ui)
 	ui.world = world
+	nat = Nativity.new(); add_child(nat); nat.setup(self)
+	ui.chapter_chosen.connect(func(id: String): _chapter_pick = id)
 	world.trigger_hit.connect(_on_trigger)
 	Touch.world_tap.connect(_on_world_tap)
 	ui.begin_pressed.connect(func(): _begin_flag = true)
@@ -63,11 +73,12 @@ func _notification(what: int) -> void:
 			if ui != null and _playing() and not ui.overlay_open(): ui.open_menu(true)     # come back to a pause menu, not mid-walk
 
 func _playing() -> bool:
-	return stage != "" and phase in ["nazareth", "road", "cana", "bear"]
+	return stage != "" and not (phase in ["boot", "title", "name", "intro", "end", "resume", "jump", "n3done"])
 
 func _on_back() -> void:
 	if ui == null: return
 	if ui.map_open: ui.open_map(false)
+	elif ui.chap_open: ui.open_chapters(false)
 	elif ui.menu_open: ui.open_menu(false)
 	elif _playing(): ui.open_menu(true)
 	elif phase == "name": pass
@@ -87,7 +98,7 @@ func _snapshot() -> Dictionary:
 	if world.control and is_instance_valid(world.player):
 		_cp_pos = world.player.position; _cp_yaw = world.player.rotation.y
 	return {"stage": stage, "px": _cp_pos.x, "pz": _cp_pos.z, "yaw": _cp_yaw, "name": Game.player_name, "girl": Game.player_girl,
-		"scrolls": Game.scrolls.keys(), "music": Game.settings.music, "saved_at": Time.get_datetime_string_from_system()}
+		"scrolls": Game.scrolls.keys(), "age": Game.age_stage, "extra": nat.extra() if nat != null else 0, "music": Game.settings.music, "saved_at": Time.get_datetime_string_from_system()}
 
 func _save() -> bool:
 	if stage == "" or phase == "end" or world == null or not is_instance_valid(world): return false
@@ -109,7 +120,9 @@ func _to_title() -> void:
 	get_tree().reload_current_scene()
 
 func _saved_info(d: Dictionary) -> String:
-	return "%s  \u00B7  %d of 3 scrolls" % [STAGES[d.stage].title, (d.get("scrolls", []) as Array).size()]
+	var i: Dictionary = STAGES[d.stage]
+	if i.get("nat", false): return "%s  \u00B7  %s" % [i.ch, i.title]
+	return "%s  \u00B7  %s  \u00B7  %d of 3 scrolls" % [i.ch, i.title, (d.get("scrolls", []) as Array).size()]
 
 func _valid_save(d: Dictionary) -> bool:
 	return not d.is_empty() and STAGES.has(str(d.get("stage", "")))
@@ -139,15 +152,24 @@ func cam_back(size := 13.0) -> void:
 # ------------------------------------------------------------------ title and name
 func _title() -> void:
 	phase = "title"
-	world.build_nazareth(); world.control = false
-	world.markers["scroll"].visible = false
-	world.cam_look(Vector3(3, 0, 1), 15.0, -33.0); world.cam_snap()
-	Audio.music("village", -8.0, 0.1)
+	world.build_fields(); world.control = false
+	world.player.visible = false
+	world.cam_look(Vector3(-3, 0, 2), 15.0, -33.0); world.cam_snap()
+	Audio.music("night", -8.0, 0.1)
 	var sv := Game.read_save()
 	var can := _valid_save(sv)
 	ui.show_title(true, _saved_info(sv) if can else ""); ui.fade_rect.color.a = 1.0
 	await ui.fade(0.0, 1.0)
-	while not _begin_flag and not _continue_flag: await Game.frame(self)
+	while not _begin_flag and not _continue_flag and _chapter_pick == "": await Game.frame(self)
+	if _chapter_pick != "":
+		Audio.sfx("select", -3.0)
+		ui.show_title(false)
+		Game.reset_progress()
+		var id := _chapter_pick; _chapter_pick = ""
+		if id == "naz_start": Game.age_stage = "adult"; _intro()
+		else:
+			await _resume({"stage": id, "name": Game.player_name, "girl": Game.player_girl, "fresh": true, "age": "adult" if not STAGES[id].get("nat", false) else "child"})
+		return
 	if _continue_flag:
 		Audio.sfx("select", -3.0)
 		ui.show_title(false)
@@ -157,11 +179,19 @@ func _title() -> void:
 	ui.show_title(false); ui.show_name(true); phase = "name"
 	while not _name_flag: await Game.frame(self)
 	Audio.sfx("select", -3.0)
-	ui.show_name(false); _intro()
+	ui.show_name(false)
+	var nm := Game.player_name; var gl := Game.player_girl
+	Game.reset_progress(); Game.player_name = nm; Game.player_girl = gl
+	nat.run("n1_flock")
 
 func _intro() -> void:
-	phase = "intro"
+	phase = "intro"; cut(true)
+	if ui.fade_rect.color.a < 0.99: await ui.fade(1.0, 0.8)
+	Audio.music("village", -9.0, 1.0)
+	if world.area != "nazareth":
+		world.build_nazareth(); world.markers["scroll"].visible = false
 	world.rebuild_player(); cam_back(11.0); world.cam_snap()
+	await ui.fade(0.0, 0.9)
 	ui.area_card("Nazareth", "Galilee")
 	await wait(1.2)
 	await ui.verse("n_lk4_16")
@@ -185,6 +215,7 @@ func _on_trigger(id: String) -> void:
 		"exit": await _leave_area()
 		"mary": await _mary_scene()
 		"steward": await _steward_scene()
+		_: await nat.on_trigger(id)
 
 func _pickup(key: String) -> void:
 	cut(true)
@@ -432,19 +463,30 @@ func _drop_scroll(key: String) -> void:
 func _resume(d: Dictionary) -> void:
 	phase = "resume"; _busy = true
 	Game.reset_progress()
+	Game.age_stage = str(d.get("age", "adult"))                  # a save from before the age stages is an adult
 	Game.player_name = str(d.get("name", Game.player_name)); Game.player_girl = bool(d.get("girl", false))
 	for k in d.get("scrolls", []): Game.scrolls[str(k)] = true
 	var st: String = d.stage; var info: Dictionary = STAGES[st]
 	await ui.fade(1.0, 0.25)
+	if info.get("nat", false):
+		Game.age_stage = "child"; stage = st; _busy = false
+		var np = null
+		if d.has("px"): np = Vector3(float(d.px), 0, float(d.pz))
+		if np != null: _cp_pos = np
+		_cp_yaw = float(d.get("yaw", 0.0)); _save_cd = 15.0
+		nat.run(st, not d.get("fresh", false), int(d.get("extra", 0)), np, _cp_yaw)
+		return
 	match info.area:
 		"nazareth": world.build_nazareth()
 		"road": world.build_road()
 		"cana": world.build_cana()
 	world.rebuild_player()
-	var pos := Vector3(float(d.px), 0, float(d.pz))
-	var b: Rect2 = world.bounds
-	pos.x = clampf(pos.x, b.position.x + 0.8, b.end.x - 0.8); pos.z = clampf(pos.z, b.position.y + 0.8, b.end.y - 0.8)
-	world.player.position = pos; world.player.rotation.y = float(d.get("yaw", 0.0)); world.player.target_yaw = world.player.rotation.y
+	var pos: Vector3 = world.player.position
+	if d.has("px"):
+		pos = Vector3(float(d.px), 0, float(d.pz))
+		var b: Rect2 = world.bounds
+		pos.x = clampf(pos.x, b.position.x + 0.8, b.end.x - 0.8); pos.z = clampf(pos.z, b.position.y + 0.8, b.end.y - 0.8)
+		world.player.position = pos; world.player.rotation.y = float(d.get("yaw", 0.0)); world.player.target_yaw = world.player.rotation.y
 	world.control = false; world.move_target = null; world.follow_jesus = false
 	var follow := false
 	var live: Array = []                       # trigger ids that are live at this checkpoint

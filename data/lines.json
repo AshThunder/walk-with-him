@@ -115,15 +115,15 @@
   "speaker": "naomi",
   "kind": "fiction",
   "ref": "",
-  "text": "Child, I dropped my father's scroll near the olive tree. Could you find it for me?",
+  "text": "Friend, I dropped my father's scroll near the olive tree. Could you find it for me?",
   "dur": 4.8
  },
  "naomi_thanks": {
   "speaker": "naomi",
   "kind": "fiction",
   "ref": "",
-  "text": "Bless you! Keep its words close, child. They will light your road.",
-  "dur": 4.2
+  "text": "Bless you! Keep its words close, friend. They will light your road.",
+  "dur": 4.1
  },
  "sv_brim": {
   "speaker": "servant",
@@ -152,5 +152,166 @@
   "ref": "",
   "text": "Blessed be God!",
   "dur": 0.95
+ },
+ "n_lk2_8": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:8 (KJV)",
+  "text": "And there were in the same country shepherds abiding in the field, keeping watch over their flock by night.",
+  "dur": 5.3
+ },
+ "n_lk2_9": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:9 (KJV)",
+  "text": "And, lo, the angel of the Lord came upon them, and the glory of the Lord shone round about them: and they were sore afraid.",
+  "dur": 7.1
+ },
+ "n_lk2_13_14": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:13-14 (KJV)",
+  "text": "And suddenly there was with the angel a multitude of the heavenly host praising God, and saying, Glory to God in the highest, and on earth peace, good will toward men.",
+  "dur": 9.2
+ },
+ "n_lk2_16": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:16 (KJV)",
+  "text": "And they came with haste, and found Mary, and Joseph, and the babe lying in a manger.",
+  "dur": 5.6
+ },
+ "n_lk2_24": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:24 (KJV)",
+  "text": "And to offer a sacrifice according to that which is said in the law of the Lord, A pair of turtledoves, or two young pigeons.",
+  "dur": 7.0
+ },
+ "n_lk2_38": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:38 (KJV)",
+  "text": "And she coming in that instant gave thanks likewise unto the Lord, and spake of him to all them that looked for redemption in Jerusalem.",
+  "dur": 6.5
+ },
+ "n_lk2_40": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:40 (KJV)",
+  "text": "And the child grew, and waxed strong in spirit, filled with wisdom: and the grace of God was upon him.",
+  "dur": 6.4
+ },
+ "n_lk2_52": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 2:52 (KJV)",
+  "text": "And Jesus increased in wisdom and stature, and in favour with God and man.",
+  "dur": 4.9
+ },
+ "n_lk3_23": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Luke 3:23 (KJV)",
+  "text": "And Jesus himself began to be about thirty years of age, being (as was supposed) the son of Joseph, which was the son of Heli,",
+  "dur": 6.9
+ },
+ "n_mt2_1": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Matthew 2:1 (KJV)",
+  "text": "Now when Jesus was born in Bethlehem of Judaea in the days of Herod the king, behold, there came wise men from the east to Jerusalem,",
+  "dur": 7.3
+ },
+ "n_mt2_9": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Matthew 2:9 (KJV)",
+  "text": "When they had heard the king, they departed; and, lo, the star, which they saw in the east, went before them, till it came and stood over where the young child was.",
+  "dur": 10.5
+ },
+ "n_mt2_10_11": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Matthew 2:10-11 (KJV)",
+  "text": "When they saw the star, they rejoiced with exceeding great joy. And when they were come into the house, they saw the young child with Mary his mother, and fell down, and worshipped him: and when they had opened their treasures, they presented unto him gifts; gold, and frankincense, and myrrh.",
+  "dur": 16.4
+ },
+ "n_mt2_12": {
+  "speaker": "narrator",
+  "kind": "kjv",
+  "ref": "Matthew 2:12 (KJV)",
+  "text": "And being warned of God in a dream that they should not return to Herod, they departed into their own country another way.",
+  "dur": 6.1
+ },
+ "a_tidings": {
+  "speaker": "angel",
+  "kind": "kjv",
+  "ref": "Luke 2:10-11 (KJV)",
+  "text": "Fear not: for, behold, I bring you good tidings of great joy, which shall be to all people. For unto you is born this day in the city of David a Saviour, which is Christ the Lord.",
+  "dur": 12.3
+ },
+ "a_sign": {
+  "speaker": "angel",
+  "kind": "kjv",
+  "ref": "Luke 2:12 (KJV)",
+  "text": "And this shall be a sign unto you; Ye shall find the babe wrapped in swaddling clothes, lying in a manger.",
+  "dur": 7.0
+ },
+ "sh_go": {
+  "speaker": "shepherd",
+  "kind": "kjv",
+  "ref": "Luke 2:15 (KJV)",
+  "text": "Let us now go even unto Bethlehem, and see this thing which is come to pass, which the Lord hath made known unto us.",
+  "dur": 6.2
+ },
+ "s_depart": {
+  "speaker": "simeon",
+  "kind": "kjv",
+  "ref": "Luke 2:29-32 (KJV)",
+  "text": "Lord, now lettest thou thy servant depart in peace, according to thy word: For mine eyes have seen thy salvation, Which thou hast prepared before the face of all people; A light to lighten the Gentiles, and the glory of thy people Israel.",
+  "dur": 14.3
+ },
+ "w_ask": {
+  "speaker": "wise",
+  "kind": "kjv",
+  "ref": "Matthew 2:2 (KJV)",
+  "text": "Where is he that is born King of the Jews? for we have seen his star in the east, and are come to worship him.",
+  "dur": 5.9
+ },
+ "sh_send": {
+  "speaker": "shepherd",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Keep the lambs close to the fire, little one. The night is long, and we must watch.",
+  "dur": 5.2
+ },
+ "sh_done": {
+  "speaker": "shepherd",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Well done. They are all in the fold.",
+  "dur": 1.89
+ },
+ "sh_town": {
+  "speaker": "shepherd",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Stay close to us, little one. Look into each stable and tell us where you see it.",
+  "dur": 4.5
+ },
+ "dove_seller": {
+  "speaker": "seller",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Quick, little one! Two of my doves have flown loose. Bring them back to the cage!",
+  "dur": 4.4
+ },
+ "wise_thank": {
+  "speaker": "wise",
+  "kind": "fiction",
+  "ref": "",
+  "text": "Thank you, little one. We will follow the road you have drawn.",
+  "dur": 5.7
  }
 }

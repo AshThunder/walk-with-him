@@ -8,6 +8,7 @@ signal skip
 signal continue_pressed
 signal save_pressed
 signal title_pressed
+signal chapter_chosen(stage_id: String)
 const _Minimap = preload("res://scripts/minimap.gd")
 const _Waypoint = preload("res://scripts/waypoint.gd")
 const _MapScreen = preload("res://scripts/mapscreen.gd")
@@ -71,6 +72,18 @@ var girl_btn: TButton
 var name_idx := 0
 var hud_on := false
 var in_line := false
+var chap_grp: Control
+var chap_open := false
+var chap_btn: TButton
+var choice_grp: Control
+var _choice := -1
+var clue_panel: Panel
+var clue_dots: Array = []
+var clue_lbls: Array = []
+## Chapters on offer in the chapter-select. Chapters 6 (Egypt) and 7 (the Temple at twelve) are not built yet.
+const CHAPTERS := [
+	["n1_flock", "1   The Night Field"], ["n2_sky", "2   Glory in the Sky"], ["n3_town", "3   The Manger"], ["n4_temple", "4   The Presentation"],
+	["n5_star", "5   The Star"], ["naz_start", "8   Nazareth"], ["cana_mary", "10   Cana of Galilee"]]
 
 func _ready() -> void:
 	layer = 10
@@ -78,7 +91,7 @@ func _ready() -> void:
 	root = Control.new(); root.set_anchors_preset(Control.PRESET_FULL_RECT); root.mouse_filter = Control.MOUSE_FILTER_IGNORE; add_child(root)
 	top = _wrap(); mid = _wrap(); bot = _wrap()
 	get_viewport().size_changed.connect(_layout); _layout()
-	_build_hud(); _build_dialogue(); _build_verse(); _build_misc(); _build_title(); _build_name(); _build_end()
+	_build_hud(); _build_dialogue(); _build_verse(); _build_misc(); _build_title(); _build_chapters(); _build_name(); _build_end()
 	ovl = _wrap(); _layout(); _build_overlays()
 	process_mode = Node.PROCESS_MODE_ALWAYS      # the UI keeps running while the world is paused (pause menu, map)
 	set_hud(false)
@@ -135,6 +148,7 @@ func _toggle_sound() -> void:
 
 func set_hud(v: bool) -> void:
 	hud_on = v; top.visible = v; joy.visible = v; wp.visible = v
+	if v: update_scrolls()
 
 func set_objective(t: String) -> void:
 	obj_lbl.text = t
@@ -179,7 +193,7 @@ func _build_overlays() -> void:
 	map_grp.visible = false
 
 func update_scrolls() -> void:
-	scroll_lbl.text = "Scrolls %d / 3" % Game.scrolls.size()
+	scroll_lbl.text = "Scrolls %d / 3" % Game.scrolls.size(); scroll_lbl.visible = Game.age_stage == "adult"
 
 # ---------- dialogue
 func _build_dialogue() -> void:
@@ -205,7 +219,7 @@ func line(id: String, who: Person = null) -> void:
 	var d: Dictionary = Game.lines[id]
 	var dur: float = Audio.play_voice(id)
 	dlg_name.text = Game.DISPLAY.get(d.speaker, "")
-	dlg_text.text = d.text; dlg_text.visible_ratio = 0.0; dlg_ref.text = (d.ref if d.kind == "kjv" else "")
+	dlg_text.text = d.text; dlg_text.visible_ratio = 0.0; _style_line(d)
 	if toast_tw: toast_tw.kill()
 	toast_panel.modulate.a = 0.0
 	dlg.visible = true; adv.visible = true; in_line = true
@@ -218,6 +232,15 @@ func line(id: String, who: Person = null) -> void:
 	Audio.stop_voice(); in_line = false
 	var tw := create_tween(); tw.tween_property(dlg, "modulate:a", 0.0, 0.2); await tw.finished
 	dlg.visible = false; adv.visible = false
+
+## Two inks: Scripture is gold with its reference; invented words are plain ink with a small "Fiction" mark.
+func _style_line(d: Dictionary) -> void:
+	if d.kind == "kjv":
+		dlg_ref.text = d.ref; dlg_ref.add_theme_color_override("font_color", Color(0.8, 0.68, 0.45))
+		dlg_text.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
+	else:
+		dlg_ref.text = "Fiction  \u00B7  added for the story"; dlg_ref.add_theme_color_override("font_color", Color(0.62, 0.66, 0.78))
+		dlg_text.add_theme_color_override("font_color", Color(1, 0.96, 0.86))
 
 # ---------- scripture card
 func _build_verse() -> void:
@@ -255,6 +278,13 @@ func _build_misc() -> void:
 	pour_bar = ColorRect.new(); pour_bar.color = Color(0.25, 0.18, 0.12); pour_bar.position = Vector2(50, 92); pour_bar.size = Vector2(580, 34); pour_panel.add_child(pour_bar)
 	pour_fill = ColorRect.new(); pour_fill.color = Color(0.4, 0.68, 0.92); pour_fill.position = Vector2(50, 92); pour_fill.size = Vector2(0, 34); pour_panel.add_child(pour_fill)
 	pour_panel.visible = false
+	clue_panel = panel(top, Rect2(60, 250, 680, 190), Color(0.1, 0.06, 0.04, 0.85), Color(0.93, 0.74, 0.34), 30)
+	lbl(clue_panel, "THE SIGN  \u00B7  Luke 2:12", F_U, 32, Color(0.93, 0.74, 0.34), Rect2(28, 8, 620, 40))
+	for i in 2:
+		var dot := ColorRect.new(); dot.size = Vector2(34, 34); dot.position = Vector2(34, 62 + i * 58); dot.color = Color(0.3, 0.24, 0.18); clue_panel.add_child(dot); clue_dots.append(dot)
+		clue_lbls.append(lbl(clue_panel, ["Swaddling clothes", "A manger"][i], F_S, 42, Color(1, 0.95, 0.82), Rect2(90, 54 + i * 58, 560, 50)))
+	clue_panel.visible = false
+	choice_grp = Control.new(); choice_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; choice_grp.size = Vector2(1080, 1920); bot.add_child(choice_grp); choice_grp.visible = false
 	fade_rect = ColorRect.new(); fade_rect.color = Color(0.05, 0.03, 0.02, 1.0); fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT); fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fade_rect)
 
@@ -273,6 +303,30 @@ func area_card(t: String, sub: String) -> void:
 	tw.chain().tween_interval(2.4)
 	tw.chain().tween_property(area_lbl, "modulate:a", 0.0, 1.0); tw.parallel().tween_property(area_sub, "modulate:a", 0.0, 1.0)
 
+func show_clues(on: bool) -> void:
+	clue_panel.visible = on
+## What this stable has: 1 = here, 0 = not here, -1 = not looked at yet.
+func set_clues(cloth: int, manger: int) -> void:
+	for i in 2:
+		var v: int = [cloth, manger][i]
+		clue_dots[i].color = [Color(0.3, 0.24, 0.18), Color(0.55, 0.2, 0.16), Color(0.95, 0.78, 0.3)][v + 1]
+		clue_lbls[i].add_theme_color_override("font_color", Color(1, 0.95, 0.82) if v != 0 else Color(0.78, 0.6, 0.55))
+		clue_lbls[i].text = ["Swaddling clothes", "A manger"][i] + ("" if v != 0 else "  \u2014 not here")
+
+## A few big buttons; none is wrong. Returns the index tapped.
+func choose(opts: Array) -> int:
+	_choice = -1
+	for c in choice_grp.get_children(): c.queue_free()
+	for i in opts.size():
+		var idx := i
+		var b := btn(choice_grp, "choice%d" % i, opts[i], Rect2(150, 1320 + i * 150, 780, 130), "gold", 64)
+		b.pressed.connect(func(): _choice = idx)
+	choice_grp.visible = true
+	while _choice < 0: await Game.frame(self)
+	choice_grp.visible = false
+	for c in choice_grp.get_children(): c.queue_free()
+	return _choice
+
 func show_pour(on: bool) -> void:
 	pour_panel.visible = on
 func set_pour(n: int, total: int, label := "Tap a waterpot to pour") -> void:
@@ -282,12 +336,13 @@ func set_pour(n: int, total: int, label := "Tap a waterpot to pour") -> void:
 func _build_title() -> void:
 	title_grp = Control.new(); title_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; title_grp.size = Vector2(1080, 1920); mid.add_child(title_grp)
 	var shade := ColorRect.new(); shade.color = Color(0.1, 0.05, 0.02, 0.38); shade.size = Vector2(1080, 1920); shade.position = Vector2(0, 0); shade.mouse_filter = Control.MOUSE_FILTER_IGNORE; title_grp.add_child(shade)
-	lbl(title_grp, "A JOURNEY IN GALILEE", F_U, 44, Color(1, 0.86, 0.5), Rect2(0, 330, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
+	lbl(title_grp, "A JOURNEY WITH JESUS", F_U, 44, Color(1, 0.86, 0.5), Rect2(0, 330, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
 	lbl(title_grp, "Walk With Him", F_T, 150, Color(1, 0.94, 0.76), Rect2(0, 390, 1080, 190), HORIZONTAL_ALIGNMENT_CENTER, false, 24)
-	lbl(title_grp, "Nazareth to Cana  \u00B7  John 2:1-11", F_S, 50, Color(1, 0.88, 0.62), Rect2(0, 590, 1080, 66), HORIZONTAL_ALIGNMENT_CENTER, false, 12)
+	lbl(title_grp, "Bethlehem to Cana", F_S, 50, Color(1, 0.88, 0.62), Rect2(0, 590, 1080, 66), HORIZONTAL_ALIGNMENT_CENTER, false, 12)
 	cont_info = lbl(title_grp, "", F_S, 40, Color(1, 0.9, 0.66), Rect2(0, 1160, 1080, 56), HORIZONTAL_ALIGNMENT_CENTER, false, 10)
 	cont_btn = btn(title_grp, "continue", "Continue", Rect2(290, 1230, 500, 150), "gold", 78); cont_btn.pressed.connect(func(): continue_pressed.emit())
 	begin_btn = btn(title_grp, "begin", "Begin", Rect2(290, 1280, 500, 150), "gold", 78); begin_btn.pressed.connect(func(): begin_pressed.emit())
+	chap_btn = btn(title_grp, "chapters", "Chapters", Rect2(340, 1450, 400, 100), "dark", 54); chap_btn.pressed.connect(func(): open_chapters(true))
 	credit_lbl = lbl(title_grp, "Scripture: King James Version", F_U, 32, Color(1, 0.9, 0.7), Rect2(0, 1470, 1080, 44), HORIZONTAL_ALIGNMENT_CENTER, false, 8)
 	title_grp.visible = false
 
@@ -297,16 +352,33 @@ func show_title(v: bool, info := "") -> void:
 	var has := info != ""
 	cont_btn.visible = has; cont_info.visible = has; cont_info.text = info
 	if has:
-		begin_btn.position = Vector2(290, 1410); begin_btn.size = Vector2(500, 120); begin_btn.set_label("New Game"); begin_btn.style = "dark"; begin_btn.font_size = 60; credit_lbl.position.y = 1580
+		begin_btn.position = Vector2(290, 1410); begin_btn.size = Vector2(500, 120); begin_btn.set_label("New Game"); begin_btn.style = "dark"; begin_btn.font_size = 60; chap_btn.position.y = 1560; credit_lbl.position.y = 1710
 	else:
-		begin_btn.position = Vector2(290, 1280); begin_btn.size = Vector2(500, 150); begin_btn.set_label("Begin"); begin_btn.style = "gold"; begin_btn.font_size = 78; credit_lbl.position.y = 1470
+		begin_btn.position = Vector2(290, 1280); begin_btn.size = Vector2(500, 150); begin_btn.set_label("Begin"); begin_btn.style = "gold"; begin_btn.font_size = 78; chap_btn.position.y = 1460; credit_lbl.position.y = 1620
 	begin_btn.queue_redraw()
+
+func _build_chapters() -> void:
+	chap_grp = Control.new(); chap_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; chap_grp.size = Vector2(1080, 1920); mid.add_child(chap_grp)
+	var sh := ColorRect.new(); sh.color = Color(0.05, 0.03, 0.02, 0.85); sh.position = Vector2(-300, -1200); sh.size = Vector2(1680, 4400); sh.mouse_filter = Control.MOUSE_FILTER_IGNORE; chap_grp.add_child(sh)
+	btn(chap_grp, "chap_block", "", Rect2(-300, -1200, 1680, 4400), "ghost")
+	var p := panel(chap_grp, Rect2(90, 190, 900, 1500), Color(0.1, 0.06, 0.04, 0.95), Color(0.93, 0.74, 0.34), 40)
+	lbl(p, "Chapters", F_T, 84, Color(1, 0.92, 0.7), Rect2(0, 24, 900, 110), HORIZONTAL_ALIGNMENT_CENTER)
+	for i in CHAPTERS.size():
+		var sid: String = CHAPTERS[i][0]
+		var b := btn(p, "chap_" + sid, CHAPTERS[i][1], Rect2(70, 150 + i * 150, 760, 130), "dark", 58)
+		b.pressed.connect(func(): open_chapters(false); chapter_chosen.emit(sid))
+	lbl(p, "Chapters 6 and 7 are still to come.", F_S, 34, Color(0.8, 0.68, 0.45), Rect2(40, 1230, 820, 50), HORIZONTAL_ALIGNMENT_CENTER)
+	var cb := btn(p, "chap_close", "Close", Rect2(200, 1320, 500, 120), "gold", 64); cb.pressed.connect(func(): open_chapters(false))
+	chap_grp.visible = false
+
+func open_chapters(v: bool) -> void:
+	chap_open = v; chap_grp.visible = v; Touch.reset()
 
 func _build_name() -> void:
 	name_grp = Control.new(); name_grp.mouse_filter = Control.MOUSE_FILTER_IGNORE; name_grp.size = Vector2(1080, 1920); mid.add_child(name_grp)
 	var p := panel(name_grp, Rect2(50, 330, 980, 1260), Color(0.1, 0.06, 0.04, 0.9), Color(0.93, 0.74, 0.34), 40)
 	lbl(p, "Who walks with Him?", F_T, 74, Color(1, 0.92, 0.7), Rect2(0, 36, 980, 100), HORIZONTAL_ALIGNMENT_CENTER)
-	lbl(p, "You are a shepherd's child of Nazareth.", F_S, 38, Color(0.85, 0.75, 0.55), Rect2(0, 130, 980, 50), HORIZONTAL_ALIGNMENT_CENTER)
+	lbl(p, "You are a shepherd's child of Bethlehem.", F_S, 38, Color(0.85, 0.75, 0.55), Rect2(0, 130, 980, 50), HORIZONTAL_ALIGNMENT_CENTER)
 	boy_btn = btn(p, "boy", "Boy", Rect2(110, 210, 350, 110), "dark", 56); girl_btn = btn(p, "girl", "Girl", Rect2(520, 210, 350, 110), "dark", 56)
 	boy_btn.pressed.connect(func(): _set_girl(false)); girl_btn.pressed.connect(func(): _set_girl(true))
 	for i in 8:
@@ -338,7 +410,7 @@ func _build_end() -> void:
 	lbl(p, d.text, F_I, 46, Color(0.2, 0.1, 0.04), Rect2(70, 170, 820, 340), HORIZONTAL_ALIGNMENT_CENTER, true)
 	lbl(p, d.ref, F_T, 40, Color(0.45, 0.2, 0.08), Rect2(0, 520, 960, 56), HORIZONTAL_ALIGNMENT_CENTER)
 	end_grp.set_meta("scrolls", lbl(p, "", F_U, 44, Color(0.4, 0.18, 0.06), Rect2(0, 620, 960, 60), HORIZONTAL_ALIGNMENT_CENTER))
-	lbl(p, "End of the Cana slice. Thank you for walking.", F_S, 36, Color(0.4, 0.25, 0.12), Rect2(40, 700, 880, 100), HORIZONTAL_ALIGNMENT_CENTER, true)
+	lbl(p, "End of this part of the journey. Thank you for walking.", F_S, 36, Color(0.4, 0.25, 0.12), Rect2(40, 700, 880, 100), HORIZONTAL_ALIGNMENT_CENTER, true)
 	var b := btn(p, "again", "Walk again", Rect2(230, 840, 500, 130), "gold", 70); b.pressed.connect(func(): again_pressed.emit())
 	end_grp.visible = false
 

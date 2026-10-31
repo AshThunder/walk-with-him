@@ -5,6 +5,10 @@ extends Node
 ## - Press, then drag past TAP_SLOP = floating virtual joystick (stick vector, -1..1 in screen space, y down)
 ## - Presses that start on a registered TButton never reach the world.
 signal world_tap(pos: Vector2)
+## Gesture mode (the sky, the dove cage, tracing the star): while `capture` is on, a finger that starts off a button reports
+## gesture("down"|"move"|"up", pos) instead of tapping or steering the stick.
+signal gesture(kind: String, pos: Vector2)
+var capture := false
 const TAP_SLOP := 36.0
 const STICK_R := 130.0
 var buttons: Array = []
@@ -36,6 +40,7 @@ func _input(e: InputEvent) -> void:
 	elif e is InputEventScreenDrag:
 		var d = _t.get(e.index)
 		if d == null: return
+		if d.get("cap", false): gesture.emit("move", e.position); return
 		if d.target and is_instance_valid(d.target):
 			d.target.set_down(d.target.hit_test(e.position))
 		else:
@@ -52,15 +57,21 @@ func hit(pos: Vector2) -> Node:
 		if b.hit_test(pos): return b
 	return null
 
+func set_capture(on: bool) -> void:
+	capture = on
+	reset()            # a finger already down when the mode flips must not leave a stuck stick or a half-gesture behind
+
 func _down(idx: int, pos: Vector2) -> void:
 	var t = hit(pos)
-	_t[idx] = {"start": pos, "target": t, "dragging": false}
+	_t[idx] = {"start": pos, "target": t, "dragging": false, "cap": capture and t == null}
 	if t: t.set_down(true)
+	elif capture: gesture.emit("down", pos)
 
 func _up(idx: int, pos: Vector2) -> void:
 	var d = _t.get(idx); _t.erase(idx)
 	if d == null: return
 	var t = d.target
+	if d.get("cap", false): gesture.emit("up", pos); return
 	if t and is_instance_valid(t):
 		t.set_down(false)
 		if t.hit_test(pos) and t.is_visible_in_tree() and not t.disabled: t.fire()
@@ -73,11 +84,13 @@ func _up(idx: int, pos: Vector2) -> void:
 func _cancel(idx: int) -> void:
 	var d = _t.get(idx); _t.erase(idx)
 	if d == null: return
+	if d.get("cap", false): gesture.emit("up", d.start); return
 	if d.target and is_instance_valid(d.target): d.target.set_down(false)
 	if d.dragging: stick = Vector2.ZERO; stick_active = false
 
 func reset() -> void:
 	for k in _t:
 		var d = _t[k]
+		if d.get("cap", false): gesture.emit("up", d.start)
 		if d.target and is_instance_valid(d.target): d.target.set_down(false)
 	_t.clear(); stick = Vector2.ZERO; stick_active = false

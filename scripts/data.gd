@@ -5,11 +5,12 @@ var lines := {}
 var player_name := "Eli"
 var player_girl := false
 var scrolls := {}                 # key -> true
+var age_stage := "adult"          # child (ch 1-6) | teen (ch 7) | adult (ch 8+); an old save without the field is an adult
 var settings := {"music": true, "sfx": true, "voice": true}
 const BOY_NAMES := ["Eli", "Asher", "Micah", "Jonah", "Reuben", "Levi", "Amos", "Nathan"]
 const GIRL_NAMES := ["Tamar", "Ruth", "Leah", "Miriam", "Hannah", "Salome", "Talia", "Abigail"]
 const SCROLL_KEYS := ["prov3_5", "ps119_105", "ps34_8"]
-const DISPLAY := {"jesus": "Jesus", "mary": "Mary", "naomi": "Naomi", "steward": "Governor of the feast", "servant": "Servant", "guest": "Guest", "guestf": "Guest", "narrator": ""}
+const DISPLAY := {"jesus": "Jesus", "mary": "Mary", "naomi": "Naomi", "steward": "Governor of the feast", "servant": "Servant", "guest": "Guest", "guestf": "Guest", "narrator": "", "shepherd": "Shepherd", "angel": "The angel of the Lord", "host": "The heavenly host", "seller": "Dove seller", "simeon": "Simeon", "anna": "Anna", "wise": "Wise man", "joseph": "Joseph"}
 
 func _ready() -> void:
 	kjv = _load_json("res://data/kjv.json")
@@ -21,7 +22,7 @@ func _load_json(p: String) -> Dictionary:
 	return JSON.parse_string(f.get_as_text())
 
 func reset_progress() -> void:
-	scrolls.clear()
+	scrolls.clear(); age_stage = "child"
 
 # ------------------------------------------------------------------ save file (user://, JSON, written atomically)
 const SAVE_PATH := "user://walk_with_him_save.json"

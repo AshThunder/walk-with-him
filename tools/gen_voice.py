@@ -9,10 +9,13 @@ V = "/workspace/_gd/voices"
 CFG = {"jesus": ("en_US-john-medium", 1.12, 0.93, ""), "narrator": ("en_GB-alba-medium", 1.06, 1.0, ""),
  "mary": ("en_US-ljspeech-medium", 1.08, 0.97, ""), "naomi": ("en_US-ljspeech-medium", 1.0, 1.08, ""),
  "steward": ("en_US-joe-medium", 1.0, 0.97, ""), "servant": ("en_US-joe-medium", 0.95, 1.12, ""),
- "guest": ("en_US-joe-medium", 0.95, 1.05, ""), "guestf": ("en_US-ljspeech-medium", 0.95, 1.15, "")}
+ "guest": ("en_US-joe-medium", 0.95, 1.05, ""), "guestf": ("en_US-ljspeech-medium", 0.95, 1.15, ""),
+ "angel": ("en_US-john-medium", 1.15, 1.05, ""), "simeon": ("en_US-joe-medium", 1.2, 0.9, ""), "shepherd": ("en_US-joe-medium", 1.0, 1.0, ""),
+ "wise": ("en_US-john-medium", 1.05, 0.95, ""), "seller": ("en_US-joe-medium", 0.92, 1.1, "")}
 lines = json.load(open(ROOT + "/data/lines.json")); cache = {}
 os.makedirs(ROOT + "/audio/voice", exist_ok=True)
 for lid, d in lines.items():
+    if "dur" in d and os.path.exists(f"{ROOT}/audio/voice/{lid}.ogg"): continue   # unchanged line: keep the voice already made
     m, ls, pitch, _ = CFG[d["speaker"]]
     v = cache.get(m) or cache.setdefault(m, PiperVoice.load(f"{V}/{m}.onnx"))
     sr = v.config.sample_rate
