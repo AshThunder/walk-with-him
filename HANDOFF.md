@@ -1,6 +1,6 @@
 # HANDOFF — Walk With Him
 
-Private Godot project for Chris Gold (GitHub: AshThunder). This file is the brief for an agent picking the game up in Google Antigravity. Read it before changing code. Also see `AGENTS.md` and `CREDITS.md`.
+Public Godot project for Chris Gold (GitHub: AshThunder). This file is the brief for an agent picking the game up in Google Antigravity. Read it before changing code. Also see `AGENTS.md` and `CREDITS.md`.
 
 ## What it is
 
